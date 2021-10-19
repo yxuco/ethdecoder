@@ -1,0 +1,25 @@
+{
+    "name": "ethdecoder",
+    "version": "1.0.0",
+    "description": "Decode Ethereum data in BigQuery and store decoded data in CouchDB.",
+    "type": "module",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/yxuco/ethdecoder.git"
+    },
+    "author": "yxuco",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/yxuco/ethdecoder/issues"
+    },
+    "homepage": "https://github.com/yxuco/ethdecoder#readme",
+    "dependencies": {
+        "@google-cloud/bigquery": "^5.9.0",
+        "abi-decoder": "^2.4.0",
+        "nano": "^9.0.5"
+    }
+}

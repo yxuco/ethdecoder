@@ -1,0 +1,14 @@
+{
+    "bqCredential": "./config/bq-credential.json",
+    "etherscanApiKey": "6JATQNFIPIN8FQRAGSZ61URTQZFJHXF4H9", 
+    "couchdb": {
+        "host": "127.0.0.1",
+        "port": 5984,
+        "name": "ethdb",
+        "user": "ethuser",
+        "password": "ethuser"
+    },
+    "standardAbis": ["./abis/standard/erc20.json", "./abis/standard/erc721.json"],
+    "tokenInfo": "./config/tokens.json",
+    "contractAbis": "./abis"
+}
