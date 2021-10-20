@@ -1,11 +1,10 @@
 import * as abiDecoder from 'abi-decoder';
 import * as fs from 'fs';
+import * as path from 'path';
 import { pipeline } from 'stream/promises';
 
 // decoder reads standard abi from specified files for erc20 and erc721, etc.
 export default function decoder(contracts, ...abiFiles) {
-
-    const stdAbis = abiFiles.map(f => readJSONFile(f));
 
     function readJSONFile(path, encoding = "utf8") {
         try {
@@ -17,50 +16,72 @@ export default function decoder(contracts, ...abiFiles) {
         }
     }
 
-    // decode transaction data, using specified abi or standard erc20/erc721 abi
-    function decodeData(data, abi) {
-        let result = null;
-        for (let ab of [abi, ...stdAbis]) {
-            if (ab && ab instanceof Array && ab.length > 0) {
-                abiDecoder.addABI(ab);
-                result = abiDecoder.decodeMethod(data);
-                abiDecoder.removeABI(ab);
-                if (result && result.name) {
-                    break;
-                }
-            }
-        }
-        if (result && result.name) {
-            let tx = { method: result.name, params: {} };
-            result.params.forEach(param => {
-                tx.params[param.name] = param.value;
-            });
-            return tx;
-        }
-    }
+    // decode agent for standard ERC tokens and a specified contract
+    const agent = (function () {
+        let stdAbis = new Map(),
+            currentAddress = null,
+            currentAbi = null;
 
-    // decode event log, using specified abi or standard erc20/erc721 abi
-    // event logs is an object with attributes {address, data, [topics]}
-    function decodeEvent(log, abi) {
-        let result = null;
-        for (let ab of [abi, ...stdAbis]) {
-            if (ab && ab instanceof Array && ab.length > 0) {
-                abiDecoder.addABI(ab);
-                result = abiDecoder.decodeLogs([log]);
-                abiDecoder.removeABI(ab);
-                if (result instanceof Array && result.length > 0) {
-                    break;
+        if (abiFiles && abiFiles.length > 0) {
+            abiFiles.forEach(f => {
+                const abi = readJSONFile(f);
+                if (abi) {
+                    stdAbis.set(path.basename(f), abi);
                 }
+            });
+        }
+
+        function setAbi(address, abi) {
+            if (address === currentAddress) {
+                // same contract is already set
+                return;
+            }
+
+            if (abi && abi instanceof Array && abi.length > 0) {
+                if (currentAddress) {
+                    abiDecoder.removeABI(currentAbi, currentAddress);  // cleanup old ABI
+                }
+                // add standard ABIs first, so their param names take precedence
+                stdAbis.forEach((value, key) => {
+                    abiDecoder.addABI(value, key);
+                })
+
+                // add new ABI
+                abiDecoder.addABI(abi, address)
+                currentAbi = abi;
+                currentAddress = address;
             }
         }
-        if (result instanceof Array && result.length > 0) {
-            let evt = { name: result[0].name, address: result[0].address, params: {} };
-            result[0].events.forEach(param => {
-                evt.params[param.name] = param.value;
-            });
-            return evt;
+
+        // decode transaction data, using specified abi or standard erc20/erc721 abi
+        function decodeData(data) {
+            const result = abiDecoder.decodeMethod(data);
+
+            if (result && result.name) {
+                let tx = { method: result.name, params: {} };
+                result.params.forEach(param => {
+                    tx.params[param.name] = param.value;
+                });
+                return tx;
+            }
         }
-    }
+
+        // decode event log, using specified abi or standard erc20/erc721 abi
+        // event logs is an object with attributes {address, data, [topics]}
+        function decodeEvent(log) {
+            const result = abiDecoder.decodeLogs([log]);
+
+            if (result instanceof Array && result.length > 0) {
+                let evt = { name: result[0].name, address: result[0].address, params: {} };
+                result[0].events.forEach(param => {
+                    evt.params[param.name] = param.value;
+                });
+                return evt;
+            }
+        }
+
+        return { setAbi, decodeData, decodeEvent };
+    }());
 
     // decode transaction data from a BigQuery result stream, and store results in couchdb
     async function decodeTransactionStream(txStream, db) {
@@ -81,8 +102,9 @@ export default function decoder(contracts, ...abiFiles) {
                     // reset abi
                     con = tx.to_address;
                     abi = await contracts.fetchAbi(con);
+                    agent.setAbi(con, abi);
                 }
-                const result = decodeData(tx.input, abi);
+                const result = agent.decodeData(tx.input);
                 if (result) {
                     tx.input = result;
                 }
@@ -100,6 +122,8 @@ export default function decoder(contracts, ...abiFiles) {
 
     // decode event log from a BigQuery result stream, and store results in couchdb
     // process only events associated with transactions specified by txSet
+    // Note: the BigQuery stream brings all events in a specified date, and then stores only events that matches transaction_hash
+    //       even though this approach is not efficient, it appears to use the least amount of BigQuery data quota.
     async function decodeEventStream(evtStream, db, txSet) {
         let con = null, abi = null;
         await pipeline(evtStream, async function (qs) {
@@ -113,8 +137,9 @@ export default function decoder(contracts, ...abiFiles) {
                     // reset abi
                     con = evt.address;
                     abi = await contracts.fetchAbi(con);
+                    agent.setAbi(con, abi);
                 }
-                const result = decodeEvent({ address: evt.address, data: evt.data, topics: evt.topics }, abi);
+                const result = agent.decodeEvent({ address: evt.address, data: evt.data, topics: evt.topics });
                 if (result) {
                     evt.topics = result.name;
                     evt.data = result.params;
@@ -133,5 +158,5 @@ export default function decoder(contracts, ...abiFiles) {
         });
     }
 
-    return { decodeData, decodeEvent, decodeTransactionStream, decodeEventStream };
+    return { agent, decodeTransactionStream, decodeEventStream };
 }

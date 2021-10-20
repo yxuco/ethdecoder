@@ -19,7 +19,7 @@
     "homepage": "https://github.com/yxuco/ethdecoder#readme",
     "dependencies": {
         "@google-cloud/bigquery": "^5.9.0",
-        "abi-decoder": "^2.4.0",
+        "abi-decoder": "github:yxuco/abi-decoder",
         "nano": "^9.0.5"
     }
 }

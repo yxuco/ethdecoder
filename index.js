@@ -25,16 +25,16 @@ async function main(...args) {
 
     // couchdb connection for persistence
     const db = cdb(config.couchdb.host, config.couchdb.port, config.couchdb.name, config.couchdb.user, config.couchdb.password);
-    //await testLocalAbi(db, bq, config) ;
+    // await testLocalAbi(db, bq, config) ;
 
     // contract cache that uses BigQuery, etherscan, and couchdb
     const contracts = contractCache(db, bq, config.etherscanApiKey);
-    contracts.init(config.tokenInfo);   // initialize cached token info from local file
+    await contracts.init(config.tokenInfo, config.contractAbis);   // initialize contract cache and token info from local files
     // await testContracts(contracts, db);
 
     // transaction and event decoder initialized by standard abis
     const dcd = decoder(contracts, ...config.standardAbis);
-    //await testDecoder(contracts, dcd);
+    // await testDecoder(contracts, dcd);
 
     const addr = args[0];
     let startDt = new Date(), endDt = new Date();
@@ -75,7 +75,7 @@ async function testLocalAbi(db, bq, config) {
 
     // contract cache that uses BigQuery and couchdb, but not etherscan
     const contracts = contractCache(db, bq);
-    contracts.init(config.tokenInfo);   // initialize cached token info from local file
+    await contracts.init(config.tokenInfo);   // initialize cached token info from local file
 
     // search contract ABI from cache, or create new contract with token info and abi from BigQuery and etherscan
     await contracts.fetchAbi(dai, `${config.contractAbis}/${dai}.json`);
@@ -87,7 +87,8 @@ async function testDecoder(contracts, dcd) {
     const uni = "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984"; // Uniswap
     const txData = `0xa9059cbb00000000000000000000000000fc1d313601c1e7c105a95f1cc4e520b1bf12540000000000000000000000000000000000000000000000003fe6c8f427e7f800`;
     const abi = await contracts.fetchAbi(uni);
-    let result = dcd.decodeData(txData, abi);
+    dcd.agent.setAbi(uni, abi);
+    let result = dcd.agent.decodeData(txData);
     console.log(result);
 
     const logData = {
@@ -99,7 +100,7 @@ async function testDecoder(contracts, dcd) {
             "0x0000000000000000000000006070aed651be1f64441cc33ea96fce699b2d91d6"
         ]
     };
-    result = dcd.decodeEvent(logData, abi);
+    result = dcd.agent.decodeEvent(logData);
     console.log(JSON.stringify(result, null, 2));
 }
 

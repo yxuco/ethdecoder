@@ -1,5 +1,6 @@
 import etherscan from './esdata.js';
 import * as fs from 'fs';
+import * as path from 'path';
 
 class Token {
     constructor(address, symbol, name, decimals) {
@@ -167,8 +168,52 @@ function contractCache(db, bq, apiKey) {
     const cache = new Map();  // cache contracts by address
     const tokens = tokenCache(bq);
 
-    function init(tokenFile) {
-        tokens.init(tokenFile);
+    // read a local ABI file that is named after the contract address; add it to contract cache and CouchDB
+    // Note: it does not override existing ABI in cache.  To reset, you can delete the original contract from CouchDB first
+    async function cacheLocalABI(file) {
+        if (path.extname(file) !== ".json") {
+            return;
+        }
+        let addr = path.basename(file, ".json").toLowerCase();
+        if (/^(0x)?[0-9a-f]{40}$/.test(addr)) {
+            // process valid ethereum address only
+            if (addr.length === 40) {
+                addr = "0x" + addr;
+            }
+            try {
+                const data = fs.readFileSync(file, "utf8");
+                const abi = JSON.parse(data);
+                if (abi && abi instanceof Array && abi.length > 0) {
+                    console.log("add contract ABI", addr);
+                    let con = await find(addr);
+                    if (!con) {
+                        con = put({ address: addr });
+                    }
+                    if (con.abi && con.abi instanceof Array && con.abi.length > 0) {
+                        // do not override existing ABI in cache
+                        return;
+                    }
+                    con.setAbi(abi);  // cache contract abi
+                    await db.insert(con, "contract", con.address);   // store the new contract
+                }
+            } catch (e) {
+                console.log("failed to cache local ABI", file, e.message);
+            }
+        }
+    }
+
+    async function init(tokenFile, abiFolder) {
+        if (tokenFile) {
+            // read token info from file
+            tokens.init(tokenFile);
+        }
+        if (abiFolder) {
+            // initialize contract cache by using ABIs in the abiFolder
+            const files = fs.readdirSync(abiFolder);
+            for (const file of files) {
+                await cacheLocalABI(path.join(abiFolder, file));
+            }
+        }
     }
 
     function put(item) {
@@ -269,7 +314,7 @@ function contractCache(db, bq, apiKey) {
                 abi = JSON.parse(data);
             }
             catch (e) {
-                console.log("fail to read abi from file:", abiFile, e.message);
+                console.log("fail to read ABI from file:", abiFile, e.message);
             }
         }
         con.abi = [];   // default empty abi

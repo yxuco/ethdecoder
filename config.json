@@ -1,6 +1,6 @@
 {
     "bqCredential": "./config/bq-credential.json",
-    "etherscanApiKey": "6JATQNFIPIN8FQRAGSZ61URTQZFJHXF4H9", 
+    "etherscanApiKey": "", 
     "couchdb": {
         "host": "127.0.0.1",
         "port": 5984,
