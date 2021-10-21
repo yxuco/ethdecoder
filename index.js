@@ -3,6 +3,7 @@ import { contractCache } from './refcache.js';
 import cdb from './couchdb.js';
 import decoder from './decoder.js';
 import * as fs from 'fs';
+import etherscan from './esdata.js';
 
 // command-line args:
 //   address: address of the contract to be processed, e.g., '0x6b175474e89094c44da98b954eedeac495271d0f' for DAI token
@@ -32,6 +33,13 @@ async function main(...args) {
     await contracts.init(config.tokenInfo, config.contractAbis);   // initialize contract cache and token info from local files
     // await testContracts(contracts, db);
 
+    /*
+    const addr = "0x514910771af9ca656af840dff83e8264ecf986ca";
+    await contracts.fetchAbi(addr, null, true);
+    const con = await contracts.find(addr);
+    console.log("contract in cache:", con);
+    */
+
     // transaction and event decoder initialized by standard abis
     const dcd = decoder(contracts, ...config.standardAbis);
     // await testDecoder(contracts, dcd);
@@ -52,10 +60,10 @@ async function main(...args) {
     const startTime = Date.now();
     for (let dt = startDt; dt <= endDt; dt.setDate(dt.getDate() + 1)) {
         const txDate = dt.toISOString().substring(0, 10);
-        console.log("decode data", addr, txDate);
         await decodeBQData(addr, txDate, bq, db, dcd);
     }
     console.log("Finished in", (Date.now() - startTime), "ms");
+    
 }
 
 main(...process.argv.slice(2));
@@ -65,10 +73,12 @@ main(...process.argv.slice(2));
 async function decodeBQData(address, txDate, bq, db, dcd) {
     // fetch and transform transactions for specified contract in a specified date
     const txStream = bq.transactionStream(txDate, address);
+    console.log("decode transaction", address, txDate);
     const txns = await dcd.decodeTransactionStream(txStream, db);
 
     // fetch corresponding events
     const evtStream = bq.eventStream(txDate);
+    console.log("decode events", txns.size, address, txDate);
     await dcd.decodeEventStream(evtStream, db, txns);
 }
 

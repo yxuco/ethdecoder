@@ -274,7 +274,7 @@ function contractCache(db, bq, apiKey) {
 
     // search cache for a contract of specified address.
     // execute bigquery if not already in cache, nor in couchdb.
-    async function find(key) {
+    async function find(key, abiOnly=false) {
         let con = get(key);
         if (con) {
             return con;
@@ -285,6 +285,11 @@ function contractCache(db, bq, apiKey) {
         if (doc) {
             // return what stored in couchdb.  abi can be reset if not already stored
             return put(doc);
+        }
+
+        if (abiOnly) {
+            // reduce the use of BigQuery data quota, if contract is used to cache ABI only
+            return;
         }
 
         // fetch contract info from BigQuery
@@ -317,6 +322,7 @@ function contractCache(db, bq, apiKey) {
                 console.log("fail to read ABI from file:", abiFile, e.message);
             }
         }
+        // console.log("add abi", con.address, abi ? abi.length : abi);
         con.abi = [];   // default empty abi
         if (abi) {
             con.setAbi(abi);  // cache contract abi
@@ -327,8 +333,8 @@ function contractCache(db, bq, apiKey) {
 
     // fetch ABI for a specified contract address from cache;
     // fetch ABI from etherscan if not already in cache
-    async function fetchAbi(address, abiFile) {
-        let con = await find(address);
+    async function fetchAbi(address, abiFile, abiOnly=false) {
+        let con = await find(address, abiOnly);
         if (con && con.abi) {
             return con.abi;
         }

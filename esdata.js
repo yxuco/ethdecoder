@@ -44,13 +44,34 @@ export default function etherscan(apiKey) {
         });
     }
 
+    function delay(duration) {
+        return new Promise((resolve) => {
+            if (duration > 0) {
+                // delay at least 10 ms
+                setTimeout(resolve, duration < 10 ? 10 : duration);
+            } else {
+                // must call resolve(). await will exit the process if this call is missing
+                resolve();
+            }
+        });
+    }
+
     async function etherscanApi(module, action, address) {
         const url = `https://api.etherscan.io/api?module=${module}&action=${action}&address=${address}&apikey=${apiKey}`;
+        const minWait = 200;  // min wait time before the next Etherscan call; to keep call rate < 5/s
+        const startTime = Date.now();
         const data = await getJSON(url);
-        try {
-            return JSON.parse(data.result);
-        } catch (e) {
-            console.log(data.result);
+        // console.log("Etherscan elapsed", (Date.now() - startTime), "ms");
+        if (data && data.result) {
+            try {
+                if (Date.now() - startTime < minWait) {
+                    // console.log("wait", (minWait - (Date.now() - startTime)), "ms");
+                    await delay(minWait - (Date.now() - startTime));
+                }
+                return JSON.parse(data.result);
+            } catch (e) {
+                console.log("failed to parse Etherscan result", e.message, data.result);
+            }
         }
     }
 

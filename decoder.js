@@ -32,7 +32,7 @@ export default function decoder(contracts, ...abiFiles) {
         }
 
         function setAbi(address, abi) {
-            if (address === currentAddress) {
+            if (!address || address === currentAddress) {
                 // same contract is already set
                 return;
             }
@@ -71,7 +71,7 @@ export default function decoder(contracts, ...abiFiles) {
         function decodeEvent(log) {
             const result = abiDecoder.decodeLogs([log]);
 
-            if (result instanceof Array && result.length > 0) {
+            if (result && result instanceof Array && result[0]) {
                 let evt = { name: result[0].name, address: result[0].address, params: {} };
                 result[0].events.forEach(param => {
                     evt.params[param.name] = param.value;
@@ -85,7 +85,7 @@ export default function decoder(contracts, ...abiFiles) {
 
     // decode transaction data from a BigQuery result stream, and store results in couchdb
     async function decodeTransactionStream(txStream, db) {
-        let con = null, abi = null;
+        let con = null;
         let txHashSet = new Set();
         await pipeline(txStream, async function (qs) {
             let count = 0;
@@ -98,15 +98,25 @@ export default function decoder(contracts, ...abiFiles) {
                     tx.block_timestamp = tx.block_timestamp.value;
                 }
 
-                if (tx.to_address !== con) {
-                    // reset abi
-                    con = tx.to_address;
-                    abi = await contracts.fetchAbi(con);
-                    agent.setAbi(con, abi);
+                if (tx.to_address && tx.to_address.length > 0 && tx.to_address !== con) {
+                    try {
+                        // reset abi
+                        con = tx.to_address;
+                        const abi = await contracts.fetchAbi(con);
+                        agent.setAbi(con, abi);
+                    } catch (e) {
+                        console.log("failed to set ABI", con, e.message);
+                    }
                 }
-                const result = agent.decodeData(tx.input);
-                if (result) {
-                    tx.input = result;
+                if (tx.input && tx.input.length > 0) {
+                    try {
+                        const result = agent.decodeData(tx.input);
+                        if (result) {
+                            tx.input = result;
+                        }
+                    } catch (e) {
+                        console.log("failed to decode transaction", tx.hash, e.message);
+                    }
                 }
                 try {
                     // set upsert=false for faster insert, will fail on duplicate
@@ -125,7 +135,7 @@ export default function decoder(contracts, ...abiFiles) {
     // Note: the BigQuery stream brings all events in a specified date, and then stores only events that matches transaction_hash
     //       even though this approach is not efficient, it appears to use the least amount of BigQuery data quota.
     async function decodeEventStream(evtStream, db, txSet) {
-        let con = null, abi = null;
+        let con = null;
         await pipeline(evtStream, async function (qs) {
             let count = 0, total = 0;
             for await (let evt of qs) {
@@ -133,19 +143,30 @@ export default function decoder(contracts, ...abiFiles) {
                 if (txSet && !txSet.has(evt.transaction_hash)) {
                     continue;
                 }
-                if (evt.address !== con) {
-                    // reset abi
-                    con = evt.address;
-                    abi = await contracts.fetchAbi(con);
-                    agent.setAbi(con, abi);
-                }
-                const result = agent.decodeEvent({ address: evt.address, data: evt.data, topics: evt.topics });
-                if (result) {
-                    evt.topics = result.name;
-                    evt.data = result.params;
-                }
-                if (evt.block_timestamp.value) {
+                if (evt && evt.block_timestamp.value) {
                     evt.block_timestamp = evt.block_timestamp.value;
+                }
+                if (evt.address && evt.address !== con) {
+                    try {
+                        // reset abi
+                        con = evt.address;
+                        const abi = await contracts.fetchAbi(con, null, true);  // abiOnly=true to bypass BigQuery
+                        agent.setAbi(con, abi);
+                    } catch (e) {
+                        console.log("failed to set ABI", con, e.message);
+                    }
+                }
+                // console.log("decode event", count, "of", total, evt.address);
+                if ((evt.data && evt.data.length > 0) || (evt.topics && evt.topics.length > 0)) {
+                    try {
+                        const result = agent.decodeEvent({ address: evt.address, data: evt.data, topics: evt.topics });
+                        if (result) {
+                            evt.topics = result.name;
+                            evt.data = result.params;
+                        }
+                    } catch (e) {
+                        console.log("failed to decode event", evt.transaction_hash, evt.log_index, e.message);
+                    }
                 }
                 try {
                     // set upsert=false for faster insert, will fail on duplicate
