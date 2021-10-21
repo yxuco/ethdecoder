@@ -45,7 +45,7 @@ export default function etherscan(apiKey) {
     }
 
     async function etherscanApi(module, action, address) {
-        const url = `https://api.etherscan.io/api?module=${module}&action=${action}&address=${contract}&apikey=${apiKey}`;
+        const url = `https://api.etherscan.io/api?module=${module}&action=${action}&address=${address}&apikey=${apiKey}`;
         const data = await getJSON(url);
         try {
             return JSON.parse(data.result);

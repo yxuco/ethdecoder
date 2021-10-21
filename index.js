@@ -49,11 +49,13 @@ async function main(...args) {
         endDt = new Date(args[2]);
     }
 
+    const startTime = Date.now();
     for (let dt = startDt; dt <= endDt; dt.setDate(dt.getDate() + 1)) {
         const txDate = dt.toISOString().substring(0, 10);
         console.log("decode data", addr, txDate);
         await decodeBQData(addr, txDate, bq, db, dcd);
     }
+    console.log("Finished in", (Date.now() - startTime), "ms");
 }
 
 main(...process.argv.slice(2));
@@ -111,6 +113,8 @@ async function testContracts(contracts, db) {
     const usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"; // USD Coin
     const usdt = "0xdac17f958d2ee523a2206206994597c13d831ec7"; // Tether USD
     const gusd = "0x056fd409e1d7a124bd7017459dfea2f387b6d5cd"; // Gemini dollar
+    const unir2 = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";  // Uniswap V2: Router 2
+    const unir3 = "0xe592427a0aece92de3edee1f18e0157c05861564";  // Uniswap V3 Router
 
     // add contracts to cache w/o updating abi
     await contracts.addAll(dai, link, usdc, usdt);
