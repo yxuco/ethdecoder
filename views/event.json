@@ -1,0 +1,10 @@
+{
+    "_id": "_design/event",
+    "views": {
+      "count-by-topic-date": {
+        "map": "function (doc) {\n  if (doc.docType === 'event' && doc.topics && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.topics, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, 1);\n  }\n}",
+        "reduce": "_count"
+      }
+    },
+    "language": "javascript"
+  }

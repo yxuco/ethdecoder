@@ -67,4 +67,4 @@ If the `start-date` and/or `end-date` is not specified, the default date would b
 
 The decoded data are stored in the CouchDB as JSON documents.  Each document is tagged with a `docType` of `contract`, `transaction`, or `event`, depending on the corresponding content type.
 
-TODO: more details on index and views.
+By creating CouchDB views, the collected data of transactions and events can be indexed and aggregated by map and reduce on CouchDB server.  Some sample views are described in [views](./views).

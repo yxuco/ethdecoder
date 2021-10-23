@@ -1,0 +1,10 @@
+{
+    "_id": "_design/uniswap-v2",
+    "views": {
+      "swap-token-out": {
+        "reduce": "function (keys, values, rereduce) {\n  // BigInt does not seem to work, so use float\n  let s = 0;\n  values.forEach(v => {\n      s += parseFloat(v);\n  });\n  return s;\n}",
+        "map": "function (doc) {\n  if (doc.docType === 'transaction' && doc.block_timestamp && doc.input.method === 'swapExactTokensForTokens') {\n    let d = new Date(doc.block_timestamp);\n    let key = [doc.input.params.path[0], d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(key, doc.input.params.amountIn);\n  }\n}"
+      }
+    },
+    "language": "javascript"
+  }

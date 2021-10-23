@@ -1,0 +1,12 @@
+{
+    "_id": "_design/contract",
+    "views": {
+      "all-contracts": {
+        "map": "function (doc) {\n  if (doc.docType === 'contract') {\n    emit(doc.address, doc.symbol);\n  }\n}"
+      },
+      "token-contracts": {
+        "map": "function (doc) {\n  if (doc.docType === 'contract' && doc.symbol) {\n    emit(doc.symbol, {name: doc.name, decimals: doc.decimals});\n  }\n}"
+      }
+    },
+    "language": "javascript"
+  }

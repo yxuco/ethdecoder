@@ -1,0 +1,13 @@
+{
+    "_id": "_design/transaction",
+    "views": {
+      "count-by-method-date": {
+        "reduce": "_count",
+        "map": "function (doc) {\n  if (doc.docType === 'transaction' && doc.input.method && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.input.method, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, 1);\n  }\n}"
+      },
+      "collated-events": {
+        "map": "function (doc) {\n  if (doc.docType === 'transaction') {\n    emit([doc.hash, 0], doc.input.method);\n  } else if (doc.docType === 'event') {\n    emit([doc.transaction_hash, 1], doc.topics);\n  }\n}"
+      }
+    },
+    "language": "javascript"
+  }
