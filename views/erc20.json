@@ -1,18 +1,18 @@
 {
-    "_id": "_design/erc20",
-    "views": {
-      "token-transfer-count": {
-        "reduce": "_count",
-        "map": "function (doc) {\n  if (doc.docType === 'event' && doc.topics === 'Transfer' && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.address, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, doc.data.value);\n  }\n}"
-      },
-      "token-transfer-amount": {
-        "map": "function (doc) {\n  if (doc.docType === 'event' && doc.topics === 'Transfer' && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.address, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, doc.data.value);\n  }\n}",
-        "reduce": "function (keys, values, rereduce) {\n  let s = 0;\n  values.forEach(v => {\n    s += parseFloat(v);\n  });\n  return s;\n}"
-      },
-      "transfer-by-account": {
-        "reduce": "function (keys, values, rereduce) {\n  let s = 0;\n  values.forEach(v => {\n    s += parseFloat(v);\n  });\n  return s;\n}",
-        "map": "function (doc) {\n  if (doc.docType === 'event' && doc.topics === 'Transfer') {\n    let k = [doc.address, doc.data.from, doc.data.to];\n    emit(k, doc.data.value);\n  }\n}"
-      }
+  "_id": "_design/erc20",
+  "views": {
+    "token-transfer-count": {
+      "reduce": "_count",
+      "map": "function (doc) {\n  if (doc.docType === 'event' && doc.topics === 'Transfer' && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.address, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, doc.data.value);\n  }\n}"
     },
-    "language": "javascript"
-  }
+    "token-transfer-amount": {
+      "map": "function (doc) {\n  if (doc.docType === 'event' && doc.topics === 'Transfer' && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.address, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, doc.data.value);\n  }\n}",
+      "reduce": "function (keys, values, rereduce) {\n  let s = 0;\n  values.forEach(v => {\n    s += parseFloat(v);\n  });\n  return s;\n}"
+    },
+    "transfer-by-account": {
+      "reduce": "function (keys, values, rereduce) {\n  let s = 0;\n  values.forEach(v => {\n    s += parseFloat(v);\n  });\n  return s;\n}",
+      "map": "function (doc) {\n  if (doc.docType === 'event' && doc.topics === 'Transfer') {\n    let k = [doc.address, doc.data.from, doc.data.to];\n    emit(k, doc.data.value);\n  }\n}"
+    }
+  },
+  "language": "javascript"
+}

@@ -1,0 +1,9 @@
+{
+  "_id": "_design/search-transaction",
+  "indexes": {
+    "by-contract": {
+      "index": "function(doc) {\n    index('default', doc._id);\n    if (doc.to_address) {\n        index('to_address', doc.to_address, { 'store': true });\n    }\n    if (doc.block_timestamp) {\n        index('block_timestamp', doc.block_timestamp, { 'store': true });\n    }\n    if (doc.docType) {\n        index('docType', doc.docType, { 'store': true });\n    }\n    if (doc.input.method) {\n        index('method', doc.input.method, { 'store': true });\n    }\n}"
+    }
+  },
+  "language": "javascript"
+}

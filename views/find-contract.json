@@ -1,0 +1,59 @@
+{
+    "_id": "_design/find-contract",
+    "language": "query",
+    "views": {
+        "all": {
+            "map": {
+                "fields": {
+                    "address": "asc"
+                },
+                "partial_filter_selector": {
+                    "docType": "contract"
+                }
+            },
+            "options": {
+                "def": {
+                    "fields": [
+                        "_id"
+                    ]
+                }
+            }
+        },
+        "by-symbol": {
+            "map": {
+                "fields": {
+                    "symbol": "asc"
+                },
+                "partial_filter_selector": {
+                    "docType": "contract"
+                }
+            },
+            "reduce": "_count",
+            "options": {
+                "def": {
+                    "fields": [
+                        "symbol"
+                    ]
+                }
+            }
+        },
+        "by-block-timestamp": {
+            "map": {
+                "fields": {
+                    "block_timestamp": "asc"
+                },
+                "partial_filter_selector": {
+                    "docType": "contract"
+                }
+            },
+            "reduce": "_count",
+            "options": {
+                "def": {
+                    "fields": [
+                        "block_timestamp"
+                    ]
+                }
+            }
+        }
+    }
+}

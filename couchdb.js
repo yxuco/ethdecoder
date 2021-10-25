@@ -36,5 +36,120 @@ export default function cdb(host, port, dbName, user, password) {
         return rows.filter(row => !row.error).map(row => row.doc);
     }
 
-    return { insert, get, fetch };
+    // query transaction view to return total count of transactions for specified contract and date
+    async function transactionCount(address, txDate) {
+        let d = new Date(txDate);
+        const startKey = [address, d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
+        d.setDate(d.getDate() + 1);
+        const endKey = [address, d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
+        const data = await db.view("transaction", "count-by-contract-date", { start_key: startKey, end_key: endKey, group_level: 4 });
+        if (data && Array.isArray(data.rows)) {
+            const rows = data.rows;
+            if (rows.length > 0) {
+                return rows[0].value;
+            }
+        }
+    }
+
+    // query transaction view to return list of transactions for specified contract and date
+    async function getTransactions(address, txDate) {
+        let d = new Date(txDate);
+        const startKey = [address, d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
+        d.setDate(d.getDate() + 1);
+        const endKey = [address, d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()];
+        const data = await db.view("transaction", "count-by-contract-date", { start_key: startKey, end_key: endKey, reduce: false });
+        if (data && Array.isArray(data.rows)) {
+            let txSet = new Set();
+            data.rows.forEach(row => txSet.add(row.id));
+            return txSet;
+        }
+    }
+
+    // query contract view to return list of contracts that do not contain BigQuery data, i.e., block_timestamp is undefined
+    async function getRawContracts() {
+        const data = await db.view("contract", "raw-contracts", { reduce: false });
+        if (data && Array.isArray(data.rows)) {
+            let cs = [];
+            data.rows.forEach(row => cs.push(row.id));
+            return cs;
+        }
+    }
+
+    async function queryRawContracts() {
+        const limit = 500;
+        let q = {
+            selector: {
+               address: {
+                  "$gt": ""
+               },
+               block_timestamp: {
+                  "$exists": false
+               }
+            },
+            use_index: [
+               "find-contract",
+               "all"
+            ],
+            fields: [
+               "_id",
+            ],
+            limit: limit
+         };
+    }
+
+    // search transaction by index to return list of transactions for specified contract and date
+    async function queryTransactions(address, txDate) {
+        // need to install Java Search Plugin for search to work: https://docs.couchdb.org/en/stable/install/search.html#install-search
+        // const data = await db.search("search-transaction", "by-contract", { q: `docType:transaction AND to_address:${address} AND block_timestamp:${txDate}*` });
+
+        // find transactions by using selector
+        let d = new Date(txDate);
+        d.setDate(d.getDate() + 1);
+        console.log(d);
+        const limit = 500;
+        let q = {
+            selector: {
+                to_address: address,
+                "$and": [
+                    {
+                        block_timestamp: {
+                            "$gt": txDate
+                        }
+                    },
+                    {
+                        block_timestamp: {
+                            "$lt": d.toISOString().substring(0, 10)
+                        }
+                    }
+                ]
+            },
+            use_index: ["find-transaction", "by_contract"],
+            fields: [
+                "_id"
+            ],
+            limit: limit
+        };
+
+        console.log(JSON.stringify(q));
+        let txSet = new Set();
+        let count = 0;
+        do {
+            const data = await db.find(q);
+            count = 0;
+            if (data && Array.isArray(data.docs)) {
+                count = data.docs.length;
+                data.docs.forEach(doc => txSet.add(doc._id));
+                if (data.bookmark) {
+                    q.bookmark = data.bookmark;
+                    // console.log("set bookmark", q.bookmark);
+                } else {
+                    return txSet;
+                }
+            }
+            console.log("got %d transactions", count);
+        } while (count >= limit);
+        return txSet;
+    }
+
+    return { insert, get, fetch, transactionCount, getTransactions, getRawContracts };
 }

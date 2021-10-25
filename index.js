@@ -33,13 +33,6 @@ async function main(...args) {
     await contracts.init(config.tokenInfo, config.contractAbis);   // initialize contract cache and token info from local files
     // await testContracts(contracts, db);
 
-    /*
-    const addr = "0x514910771af9ca656af840dff83e8264ecf986ca";
-    await contracts.fetchAbi(addr, null, true);
-    const con = await contracts.find(addr);
-    console.log("contract in cache:", con);
-    */
-
     // transaction and event decoder initialized by standard abis
     const dcd = decoder(contracts, ...config.standardAbis);
     // await testDecoder(contracts, dcd);
@@ -63,7 +56,7 @@ async function main(...args) {
         await decodeBQData(addr, txDate, bq, db, dcd);
     }
     console.log("Finished in", (Date.now() - startTime), "ms");
-    
+
 }
 
 main(...process.argv.slice(2));
@@ -71,10 +64,18 @@ main(...process.argv.slice(2));
 // decode transaction and event data of specified contract address and date.
 // fetch data from BigQuery, write decoded data in couchdb
 async function decodeBQData(address, txDate, bq, db, dcd) {
-    // fetch and transform transactions for specified contract in a specified date
-    const txStream = bq.transactionStream(txDate, address);
-    console.log("decode transaction", address, txDate);
-    const txns = await dcd.decodeTransactionStream(txStream, db);
+    const txCount = await db.transactionCount(address, txDate);
+    let txns = new Set();
+    if (txCount > 1000) {
+        // already collected transaction in db, so query the transactions
+        console.log("fetch transactions from db", address, txDate);
+        txns = await db.getTransactions(address, txDate);
+    } else {
+        // fetch and transform transactions for specified contract in a specified date
+        const txStream = bq.transactionStream(txDate, address);
+        console.log("decode transaction", address, txDate);
+        txns = await dcd.decodeTransactionStream(txStream, db);
+    }
 
     // fetch corresponding events
     const evtStream = bq.eventStream(txDate);
@@ -118,7 +119,7 @@ async function testDecoder(contracts, dcd) {
 
 async function testContracts(contracts, db) {
     // find or create contract of specified address
-    const dai  = "0x6b175474e89094c44da98b954eedeac495271d0f"; // DAI token
+    const dai = "0x6b175474e89094c44da98b954eedeac495271d0f"; // DAI token
     const link = "0x514910771af9ca656af840dff83e8264ecf986ca"; // LINK token
     const usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"; // USD Coin
     const usdt = "0xdac17f958d2ee523a2206206994597c13d831ec7"; // Tether USD
