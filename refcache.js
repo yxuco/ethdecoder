@@ -60,7 +60,7 @@ function tokenCache(bq) {
         if (tks.length > 0) {
             const newTokens = tks.join(`","`);
             const stmt = `SELECT address, symbol, name, decimals FROM \`bigquery-public-data.crypto_ethereum.tokens\` WHERE address in ("${newTokens}")`;
-            console.log(stmt);
+            // console.log(stmt);
             const [rows] = await bq.query(stmt);
             rows.forEach(row => {
                 cache.set(row.address, new Token(row.address, row.symbol, row.name, row.decimals));
@@ -235,15 +235,15 @@ function contractCache(db, bq, apiKey) {
     async function addAll(...addresses) {
         // exclude keys already cached
         let addrs = addresses.filter(addr => !cache.has(addr));
-        console.log("contracts not in cache:", addrs);
+        // console.log("contracts not in cache:", addrs);
 
         // fetch keys from couchdb first
         const docs = await db.fetch(...addrs);
         if (docs.length > 0) {
             docs.forEach(doc => put(doc));
-            addrs = addrs.filter(addr => !cache.has(addr));
+            addrs = addrs.filter(addr => !cache.has(addr) || cache.get(addr).block_timestamp === undefined);
         }
-        console.log("contracts not in db:", addrs);
+        console.log("contracts w/o metadata:", addrs.length);
 
         if (addrs.length > 0) {
             // add token info to cache first
@@ -251,10 +251,30 @@ function contractCache(db, bq, apiKey) {
 
             const newAddrs = addrs.join(`","`);
             const stmt = `SELECT address, is_erc20, is_erc721, block_timestamp, block_number FROM \`bigquery-public-data.crypto_ethereum.contracts\` WHERE address in ("${newAddrs}")`;
-            console.log(stmt);
+            // console.log(stmt);
             const [rows] = await bq.query(stmt);
             for (const row of rows) {
-                const con = put(row);   // construct Contract and add to cache
+                let con = cache.get(row.address);
+                if (con) {
+                    // update existing cache that does not contain metadata
+                    con.is_erc20 = row.is_erc20;
+                    con.is_erc721 = row.is_erc721;
+                    if (row.block_timestamp) {
+                        // convert to value string if it is a BigQuery result
+                        con.block_timestamp = row.block_timestamp.value ? row.block_timestamp.value : row.block_timestamp;
+                    }
+                    con.block_number = row.block_number;
+                    if (!con.symbol) {
+                        const token = tokens.get(row.address);
+                        if (token && token.symbol) {
+                            console.log("set contract token", token.symbol, row.address);
+                        }
+                        con.setTokenInfo(token);
+                    }
+                } else {
+                    // cache new contract
+                    con = put(row);   // construct Contract and add to cache
+                }
                 if (con) {
                     // insert new contract info to couchdb
                     await db.insert(con, "contract", con.address);
@@ -274,7 +294,7 @@ function contractCache(db, bq, apiKey) {
 
     // search cache for a contract of specified address.
     // execute bigquery if not already in cache, nor in couchdb.
-    async function find(key, abiOnly=false) {
+    async function find(key, abiOnly = false) {
         let con = get(key);
         if (con) {
             return con;
@@ -333,7 +353,7 @@ function contractCache(db, bq, apiKey) {
 
     // fetch ABI for a specified contract address from cache;
     // fetch ABI from etherscan if not already in cache
-    async function fetchAbi(address, abiFile, abiOnly=false) {
+    async function fetchAbi(address, abiFile, abiOnly = false) {
         let con = await find(address, abiOnly);
         if (con && con.abi) {
             return con.abi;

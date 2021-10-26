@@ -3,19 +3,15 @@ import { contractCache } from './refcache.js';
 import cdb from './couchdb.js';
 import decoder from './decoder.js';
 import * as fs from 'fs';
-import etherscan from './esdata.js';
 
-// command-line args:
+// command-line: node index.js command [args]
+//   command: decode or update
+//
+// decode args: address [start-date [end-date]]
 //   address: address of the contract to be processed, e.g., '0x6b175474e89094c44da98b954eedeac495271d0f' for DAI token
 //   start-date: period start date, e.g., '2021-10-01'; default to yesterday
 //   end-date: period end date, e.g., '2021-10-05'; default to yesterday
 async function main(...args) {
-    // check args
-    if (!args || args.length < 1) {
-        console.log("Usage: node index.js address [start-date [end-date]]");
-        console.log(" e.g., node index.js '0x6b175474e89094c44da98b954eedeac495271d0f' '2010-10-01'");
-        process.exit(1);
-    }
 
     // read config from current folder
     const data = fs.readFileSync("./config.json", "utf8");
@@ -33,30 +29,41 @@ async function main(...args) {
     await contracts.init(config.tokenInfo, config.contractAbis);   // initialize contract cache and token info from local files
     // await testContracts(contracts, db);
 
-    // transaction and event decoder initialized by standard abis
-    const dcd = decoder(contracts, ...config.standardAbis);
-    // await testDecoder(contracts, dcd);
+    if (args[0] === "update") {
+        await updateBQConcepts(db, contracts);
+    } else if (args[0] === "decode" && args.length > 1) {
+        // transaction and event decoder initialized by standard abis
+        const dcd = decoder(contracts, ...config.standardAbis);
+        // await testDecoder(contracts, dcd);
 
-    const addr = args[0];
-    let startDt = new Date(), endDt = new Date();
-    if (args.length < 2) {
-        startDt.setDate(startDt.getDate() - 1);
+        const addr = args[1];
+        let startDt = new Date(), endDt = new Date();
+        if (args.length < 3) {
+            startDt.setDate(startDt.getDate() - 1);
+        } else {
+            startDt = new Date(args[2]);
+        }
+        if (args.length < 4) {
+            endDt.setDate(endDt.getDate() - 1);
+        } else {
+            endDt = new Date(args[3]);
+        }
+
+        const startTime = Date.now();
+        for (let dt = startDt; dt <= endDt; dt.setDate(dt.getDate() + 1)) {
+            const txDate = dt.toISOString().substring(0, 10);
+            await decodeBQData(addr, txDate, bq, db, dcd);
+        }
+        console.log("Finished in", (Date.now() - startTime), "ms");
     } else {
-        startDt = new Date(args[1]);
-    }
-    if (args.length < 3) {
-        endDt.setDate(endDt.getDate() - 1);
-    } else {
-        endDt = new Date(args[2]);
-    }
+        // print usage
+        console.log("Usage: node index.js decode address [start-date [end-date]]");
+        console.log(" e.g., node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2010-10-01'");
 
-    const startTime = Date.now();
-    for (let dt = startDt; dt <= endDt; dt.setDate(dt.getDate() + 1)) {
-        const txDate = dt.toISOString().substring(0, 10);
-        await decodeBQData(addr, txDate, bq, db, dcd);
+        console.log("\nor update Contract cache:");
+        console.log("node index.js update")
+        process.exit(1);
     }
-    console.log("Finished in", (Date.now() - startTime), "ms");
-
 }
 
 main(...process.argv.slice(2));
@@ -81,6 +88,17 @@ async function decodeBQData(address, txDate, bq, db, dcd) {
     const evtStream = bq.eventStream(txDate);
     console.log("decode events", txns.size, address, txDate);
     await dcd.decodeEventStream(evtStream, db, txns);
+}
+
+async function updateBQConcepts(db, contracts) {
+    const cs = await db.getRawContracts();
+    console.log("update contracts", cs.length);
+    const batch = 200;  // update contracts in batch of this size
+    for (let start = 0; start < cs.length; start += batch) {
+        console.log("contract start seq", start);
+        const subs = cs.length > start + batch ? cs.slice(start, start+batch) : cs.slice(start);
+        await contracts.addAll(...subs);
+    }
 }
 
 async function testLocalAbi(db, bq, config) {

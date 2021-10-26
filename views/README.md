@@ -57,7 +57,7 @@ The design doc [erc20.json](./erc20.json) defines 3 views for any standard [ERC2
 * `token-transfer-amount` shows the amount of tokens of a specified type transferred during a time period, i.e., it is summed by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.  The aggregation granularity can be specified by the option of `group_level`.  Note that the unit of the amount depends on the `decimals` attribute of a token definition, which is usually `18` that means a unit of 10<sup>18</sup>.
 * `transfer-by-account` shows the total amount of tokens of a specified type transferred between 2 accounts, i.e., it is summed by a hierarchical key dimension of `[ token, from, to ]`.
 
-## Uniswqp Sample View
+## Uniswap Sample View
 
 The design doc [uniswap-v2.json](./uniswap-v2.json) defines a view that is specific for the Uniswap transaction method of `swapExactTokensForTokens`:
 
@@ -67,13 +67,13 @@ Similar views can be easily defined for any complex Ethereum contracts, as long 
 
 ## Query Indexes
 
-Besides [views](https://docs.couchdb.org/en/stable/ddocs/views/index.html) that allows you to filter and index data, CouchDB also provides the [/db/_fiind](https://docs.couchdb.org/en/stable/api/database/find.html) API to support indexed queries.  Following are 2 examples:
+Besides [views](https://docs.couchdb.org/en/stable/ddocs/views/index.html) that allow you to filter and index data, CouchDB also provides the [/db/_fiind](https://docs.couchdb.org/en/stable/api/database/find.html) API to support indexed queries.  Following are 2 examples:
 
 ### Contract Indexes
 
 The design doc [find-contract.json](./find-contract.json) defines 3 indexes for finding contracts in the database:
 
-* `all` is an index on `address`, which can be used to query contracts with specified range of addresses and additional conditions on other contract attributes.
+* `all` is an index on `address`, which can be used to query contracts with specified range of contract addresses and additional conditions on other contract attributes.
 * `by-symbol` is an index on `symbol`, which can be used to query contracts that contain a `symbol` attribute.
 * `by-block-timestamp` is an index on `block_timestamp`, which can be used to query contracts that contain a `block_timestamp` attribute.
 

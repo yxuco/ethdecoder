@@ -75,28 +75,6 @@ export default function cdb(host, port, dbName, user, password) {
         }
     }
 
-    async function queryRawContracts() {
-        const limit = 500;
-        let q = {
-            selector: {
-               address: {
-                  "$gt": ""
-               },
-               block_timestamp: {
-                  "$exists": false
-               }
-            },
-            use_index: [
-               "find-contract",
-               "all"
-            ],
-            fields: [
-               "_id",
-            ],
-            limit: limit
-         };
-    }
-
     // search transaction by index to return list of transactions for specified contract and date
     async function queryTransactions(address, txDate) {
         // need to install Java Search Plugin for search to work: https://docs.couchdb.org/en/stable/install/search.html#install-search

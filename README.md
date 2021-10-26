@@ -49,19 +49,34 @@ Besides system connection data as described in the previous section, the [config
 
 ## Run
 
-Run the following command to decode Ethereum transactions and events created by a specified contract during a specified date range:
+The command line interface supports the following functions:
+
+* `decode` command fetches Ethereum transactions and events from BigQuery public data store, decodes them and then writes the result to a CouchDB database.  It also builds a reference cache of contract ABIs by using Etherscan API calls.
+* `update` command updates the contract cache in batches by fetching metadata and related token info from BigQuery public data store.
+
+### Decode
+
+Run the following command to decode Ethereum transactions and events from a specified contract during a specified date range:
 
 ```bash
-node index.js contract-address [ start-date [ end-date ]]
+node index.js decode contract-address [ start-date [ end-date ]]
 ```
 
 For example, the following command would decode the data for the `DAI` token contract in the data range from `2021-10-01` and `2021-10-05` (inclusive):
 
 ```bash
-node index.js '0x6b175474e89094c44da98b954eedeac495271d0f' '2021-10-01' '2021-10-05'
+node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2021-10-01' '2021-10-05'
 ```
 
 If the `start-date` and/or `end-date` is not specified, the default date would be the date before the system date, i.e., yesterday.
+
+### Update
+
+Run the following command to update cached contracts created during the decode process:
+
+```bash
+node index.js update
+```
 
 ## Data in CouchDB
 
