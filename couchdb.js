@@ -67,9 +67,9 @@ export default function cdb(host, port, dbName, user, password) {
         }
     }
 
-    // query contract view to return list of contracts that do not contain BigQuery data, i.e., block_timestamp is undefined
-    async function getRawContracts() {
-        const data = await db.view("contract", "raw-contracts", { reduce: false });
+    // query contract view to return list of contracts from a contract view
+    async function getContracts(view) {
+        const data = await db.view("contract", view, { reduce: false });
         if (data && Array.isArray(data.rows)) {
             let cs = [];
             data.rows.forEach(row => cs.push(row.id));
@@ -79,9 +79,11 @@ export default function cdb(host, port, dbName, user, password) {
 
     // transform stream to convert view result to csv file
     class ViewFormatStream extends stream.Transform {
-        constructor() {
+        constructor(opt, contracts) {
             super({ decodeStrings: false });  // Don't convert strings back to buffers
             this.incompleteLine = "";         // Any remnant of the last chunk of data
+            this.opt = opt;
+            this.contracts = contracts;
         }
 
         // This method is invoked when there is a string ready to be
@@ -104,7 +106,10 @@ export default function cdb(host, port, dbName, user, password) {
             let output = "";
             for (let l of lines) {
                 if (l.startsWith('{"key":')) {
-                    output += this.toCSV(l) + "\n";
+                    const csv = this.toCSV(l);
+                    if (csv.length > 0) {
+                        output += csv + "\n";
+                    }
                 }
             }
 
@@ -119,25 +124,56 @@ export default function cdb(host, port, dbName, user, password) {
             const keys = data.key, values = data.value;
             let cvs = "";
 
+            let tokenSymbols = [];
+            let tokenDecimals = {};
+            if (this.opt) {
+                // setup token info
+                for (const p of Object.keys(this.opt)) {
+                    let addr = null;
+                    if (Array.isArray(keys)) {
+                        addr = keys[this.opt[p]]
+                    } else if (this.opt[p] == 0) {
+                        addr = keys
+                    }
+                    if (addr) {
+                        const token = this.contracts.get(addr);
+                        if (token && token.symbol && token.decimals) {
+                            // console.log("use token", p, token.symbol, token.decimals);
+                            tokenSymbols[this.opt[p]] = token.symbol;
+                            tokenDecimals[p] = token.decimals;
+                        } else {
+                            // ignore record if token is not found in cache
+                            return "";
+                        }
+                    } else {
+                        // ignore record if required token address is not specified
+                        return "";
+                    }
+                }
+            }
+
             // add keys, which may be array or primitive
             if (Array.isArray(keys)) {
-                for (const k of keys) {
+                for (let i = 0; i < keys.length; i++) {
+                    const k = tokenSymbols[i] ? tokenSymbols[i] : keys[i];
                     cvs += typeof k === "string" ? '"' + k + '",' : k + ",";
                 }
             } else {
-                cvs += typeof keys === "string" ? '"' + keys + '",' : keys + ",";
+                const k = tokenSymbols[0] ? tokenSymbols[0] : keys;
+                cvs += typeof k === "string" ? '"' + k + '",' : k + ",";
             }
 
             // add values, assume it is a flat object or primitive
             if (typeof values === "object") {
                 let sep = "";
                 for (const p of Object.keys(values)) {
-                    const v = values[p];
+                    const v = tokenDecimals[p] && tokenDecimals[p] > 0 ? parseFloat(values[p]) / (10 ** tokenDecimals[p]) : values[p];
                     cvs += typeof v === "string" ? sep + '"' + v + '"' : sep + v;
                     sep = ",";
                 }
             } else {
-                cvs += typeof values === "string" ? '"' + values + '"' : values;
+                const v = tokenDecimals["value"] && tokenDecimals["value"] > 0 ? parseFloat(values) / (10 ** tokenDecimals["value"]) : values;
+                cvs += typeof v === "string" ? '"' + v + '"' : v;
             }
             return cvs;
         }
@@ -147,21 +183,24 @@ export default function cdb(host, port, dbName, user, password) {
         _flush(callback) {
             // If we still have a last record, pass it to the callback
             if (this.incompleteLine.startsWith('{"key":')) {
-                callback(null, this.toCSV(this.incompleteLine) + "\n");
+                const csv = this.toCSV(this.incompleteLine);
+                if (csv.length > 0) {
+                    callback(null, csv + "\n");
+                }
             }
         }
     }
 
     // write result of a view query to stdout or a file
-    function exportView(ddoc, view, params, outFile) {
+    function exportView(ddoc, view, params, outFile, opt, contracts) {
         let out = process.stdout;
-        if (outFile) {
+        if (outFile && outFile.length > 0) {
             out = fs.createWriteStream(outFile);
         }
         db.viewAsStream(ddoc, view, params)
             .on("error", e => console.error("error", e))
             .setEncoding("utf8")
-            .pipe(new ViewFormatStream())
+            .pipe(new ViewFormatStream(opt, contracts))
             .pipe(out);
     }
 
@@ -219,5 +258,5 @@ export default function cdb(host, port, dbName, user, password) {
         return txSet;
     }
 
-    return { insert, get, fetch, transactionCount, getTransactions, getRawContracts, exportView };
+    return { insert, get, fetch, transactionCount, getTransactions, getContracts, exportView };
 }

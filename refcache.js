@@ -402,7 +402,7 @@ function contractCache(db, bq, apiKey) {
         return cache.size;
     }
 
-    return { find, addAll, fetchAbi, size, has, remove, clear, clearOld, init };
+    return { get, find, addAll, fetchAbi, size, has, remove, clear, clearOld, init };
 }
 
 export { Contract, contractCache };

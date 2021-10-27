@@ -12,11 +12,12 @@ import * as fs from 'fs';
 //   start-date: period start date, e.g., '2021-10-01'; default to yesterday
 //   end-date: period end date, e.g., '2021-10-05'; default to yesterday
 //
-// export args: ddoc view params [output]
+// export args: ddoc view params [output [opt]]
 //   ddoc: name of the view's design doc, e.g., uniswap-v2
 //   view: name of the view defined in the design doc, e.g., swap-token-out
 //   params: parameters for the view query, e.g., {"group_level": 5, "limit": 20}
 //   output: output file name, e.g., ./report.csv
+//   opt: option specifies token address position in keys, e.g., {"amountIn": 0, "amountOut": 1}
 async function main(...args) {
 
     // read config from current folder
@@ -36,7 +37,7 @@ async function main(...args) {
     // await testContracts(contracts, db);
 
     if (args[0] === "update") {
-        await updateBQConcepts(db, contracts);
+        await updateBQConcepts(db, contracts, "raw-contracts");
     } else if (args[0] === "decode" && args.length > 1) {
         // transaction and event decoder initialized by standard abis
         const dcd = decoder(contracts, ...config.standardAbis);
@@ -62,14 +63,27 @@ async function main(...args) {
         }
         console.log("Finished in", (Date.now() - startTime), "ms");
     } else if (args[0] === "export" && args.length > 3) {
-        let params = {};
+        let params = {}, opt = {};
         try {
             params = JSON.parse(args[3]);
         } catch (e) {
             console.error("Invalid view parameter\n", e);
             process.exit(1);
         }
-        db.exportView(args[1], args[2], params, args[4]);
+        if (args.length > 5) {
+            try {
+                opt = JSON.parse(args[5]);
+                if (Object.keys(opt).length > 0) {
+                    // cache known tokens
+                    await updateBQConcepts(db, contracts, "token-contracts");
+                    console.log("cached known tokens", contracts.size());
+                }
+            } catch (e) {
+                console.error("Invalid option arg\n", e);
+                process.exit(1);
+            }
+        }
+        db.exportView(args[1], args[2], params, args[4], opt, contracts);
     } else {
         // print usage
         console.log("Usage: node index.js command [args]");
@@ -78,8 +92,8 @@ async function main(...args) {
         console.log("  e.g., node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2010-10-01' '2010-10-01'");
         console.log("\nor update Contract cache:");
         console.log(" e.g., node index.js update");
-        console.log("\nnode index.js export ddoc view params [output]");
-        console.log(" e.g., node index.js export 'uniswap-v2' 'swap-token-out' '{\"group_level\": 5, \"limit\": 20}' './report.csv'");
+        console.log("\nnode index.js export ddoc view params [output [opt]]");
+        console.log(" e.g., node index.js export 'uniswap-v2' 'swap-token-out' '{\"group_level\": 5, \"limit\": 20}' './report.csv' '{\"amountIn\": 0, \"amountOut\": 1}'");
         process.exit(1);
     }
 }
@@ -108,13 +122,13 @@ async function decodeBQData(address, txDate, bq, db, dcd) {
     await dcd.decodeEventStream(evtStream, db, txns);
 }
 
-async function updateBQConcepts(db, contracts) {
-    const cs = await db.getRawContracts();
-    console.log("update contracts", cs.length);
+async function updateBQConcepts(db, contracts, view) {
+    const cs = await db.getContracts(view);
+    console.log("update contract cache", cs.length);
     const batch = 200;  // update contracts in batch of this size
     for (let start = 0; start < cs.length; start += batch) {
         console.log("contract start seq", start);
-        const subs = cs.length > start + batch ? cs.slice(start, start+batch) : cs.slice(start);
+        const subs = cs.length > start + batch ? cs.slice(start, start + batch) : cs.slice(start);
         await contracts.addAll(...subs);
     }
 }
