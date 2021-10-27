@@ -53,6 +53,7 @@ The command line interface supports the following functions:
 
 * `decode` command fetches Ethereum transactions and events from BigQuery public data store, decodes them and then writes the result to a CouchDB database.  It also builds a reference cache of contract ABIs by using Etherscan API calls.
 * `update` command updates the contract cache in batches by fetching metadata and related token info from BigQuery public data store.
+* `export` command queries a CouchDB view, and format the result as a CSV file, so it can be imported to a data analytics tool.
 
 ### Decode
 
@@ -62,7 +63,7 @@ Run the following command to decode Ethereum transactions and events from a spec
 node index.js decode contract-address [ start-date [ end-date ]]
 ```
 
-For example, the following command would decode the data for the `DAI` token contract in the data range from `2021-10-01` and `2021-10-05` (inclusive):
+For example, the following command would decode the data for the `DAI` token contract in the date range from `2021-10-01` and `2021-10-05` (inclusive):
 
 ```bash
 node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2021-10-01' '2021-10-05'
@@ -77,6 +78,16 @@ Run the following command to update cached contracts created during the decode p
 ```bash
 node index.js update
 ```
+
+### Export
+
+If you have collected some Uniswap v2 data, and defined the view in [uniswap-v2.json](./views/uniswap-v2.json), you can execute a query on the view by using the following command:
+
+```bash
+node index.js export 'uniswap-v2' 'swap-token-out' '{"group_level": 5, "limit": 20}' './report.csv'
+```
+
+It will generate a comma-delimited file `report.csv` containing the first 20 rows of the aggregated view.  Before executing this command, you may preview the result by using the CouchDB Fauxton UI.
 
 ## Data in CouchDB
 

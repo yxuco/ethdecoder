@@ -5,12 +5,18 @@ import decoder from './decoder.js';
 import * as fs from 'fs';
 
 // command-line: node index.js command [args]
-//   command: decode or update
+//   command: decode|update|export
 //
 // decode args: address [start-date [end-date]]
 //   address: address of the contract to be processed, e.g., '0x6b175474e89094c44da98b954eedeac495271d0f' for DAI token
 //   start-date: period start date, e.g., '2021-10-01'; default to yesterday
 //   end-date: period end date, e.g., '2021-10-05'; default to yesterday
+//
+// export args: ddoc view params [output]
+//   ddoc: name of the view's design doc, e.g., uniswap-v2
+//   view: name of the view defined in the design doc, e.g., swap-token-out
+//   params: parameters for the view query, e.g., {"group_level": 5, "limit": 20}
+//   output: output file name, e.g., ./report.csv
 async function main(...args) {
 
     // read config from current folder
@@ -55,13 +61,25 @@ async function main(...args) {
             await decodeBQData(addr, txDate, bq, db, dcd);
         }
         console.log("Finished in", (Date.now() - startTime), "ms");
+    } else if (args[0] === "export" && args.length > 3) {
+        let params = {};
+        try {
+            params = JSON.parse(args[3]);
+        } catch (e) {
+            console.error("Invalid view parameter\n", e);
+            process.exit(1);
+        }
+        db.exportView(args[1], args[2], params, args[4]);
     } else {
         // print usage
-        console.log("Usage: node index.js decode address [start-date [end-date]]");
-        console.log(" e.g., node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2010-10-01'");
-
+        console.log("Usage: node index.js command [args]");
+        console.log(" where command is decode, update, or export")
+        console.log("\nnode index.js decode address [start-date [end-date]]");
+        console.log("  e.g., node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2010-10-01' '2010-10-01'");
         console.log("\nor update Contract cache:");
-        console.log("node index.js update")
+        console.log(" e.g., node index.js update");
+        console.log("\nnode index.js export ddoc view params [output]");
+        console.log(" e.g., node index.js export 'uniswap-v2' 'swap-token-out' '{\"group_level\": 5, \"limit\": 20}' './report.csv'");
         process.exit(1);
     }
 }

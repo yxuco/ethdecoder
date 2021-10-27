@@ -59,7 +59,7 @@ function tokenCache(bq) {
         const tks = addresses.filter(addr => !cache.has(addr));
         if (tks.length > 0) {
             const newTokens = tks.join(`","`);
-            const stmt = `SELECT address, symbol, name, decimals FROM \`bigquery-public-data.crypto_ethereum.tokens\` WHERE address in ("${newTokens}")`;
+            const stmt = `SELECT address, symbol, name, decimals FROM \`bigquery-public-data.crypto_ethereum.amended_tokens\` WHERE address in ("${newTokens}")`;
             // console.log(stmt);
             const [rows] = await bq.query(stmt);
             rows.forEach(row => {
@@ -79,7 +79,7 @@ function tokenCache(bq) {
         if (token) {
             return token;
         }
-        const stmt = `SELECT address, symbol, name, decimals FROM \`bigquery-public-data.crypto_ethereum.tokens\` WHERE address = "${key}"`;
+        const stmt = `SELECT address, symbol, name, decimals FROM \`bigquery-public-data.crypto_ethereum.amended_tokens\` WHERE address = "${key}"`;
         console.log(stmt);
         const [result] = await bq.query(stmt);
         token = result.length > 0 ? new Token(result[0].address, result[0].symbol, result[0].name, result[0].decimals) : new Token(key);
@@ -241,7 +241,10 @@ function contractCache(db, bq, apiKey) {
         const docs = await db.fetch(...addrs);
         if (docs.length > 0) {
             docs.forEach(doc => put(doc));
-            addrs = addrs.filter(addr => !cache.has(addr) || cache.get(addr).block_timestamp === undefined);
+            addrs = addrs.filter(addr => {
+                const c = cache.get(addr);
+                return !(c && c.block_timestamp && c.symbol);
+            });
         }
         console.log("contracts w/o metadata:", addrs.length);
 

@@ -1,4 +1,6 @@
 import dbScope from 'nano';
+import * as stream from 'stream';
+import * as fs from 'fs';
 
 export default function cdb(host, port, dbName, user, password) {
     const url = user ? `http://${user}:${password}@${host}:${port}` : `http://${host}:${port}`;
@@ -75,6 +77,94 @@ export default function cdb(host, port, dbName, user, password) {
         }
     }
 
+    // transform stream to convert view result to csv file
+    class ViewFormatStream extends stream.Transform {
+        constructor() {
+            super({ decodeStrings: false });  // Don't convert strings back to buffers
+            this.incompleteLine = "";         // Any remnant of the last chunk of data
+        }
+
+        // This method is invoked when there is a string ready to be
+        // transformed. It should pass transformed data to the specified
+        // callback function. We expect string input so this stream should
+        // only be connected to readable streams that have had
+        // setEncoding() called on them.
+        _transform(chunk, encoding, callback) {
+            if (typeof chunk !== "string") {
+                callback(new Error("Expected a string but got a buffer"));
+                return;
+            }
+            // Add the chunk to any previously incomplete line and break everything into lines
+            let lines = (this.incompleteLine + chunk).split("\n");
+
+            // The last element of the array is the new incomplete line
+            this.incompleteLine = lines.pop();
+
+            // Concat all rows
+            let output = "";
+            for (let l of lines) {
+                if (l.startsWith('{"key":')) {
+                    output += this.toCSV(l) + "\n";
+                }
+            }
+
+            // Always call the callback even if there is no output
+            callback(null, output);
+        }
+
+        // transform key-value record to csv line
+        toCSV(row) {
+            const end = row.lastIndexOf("}");
+            const data = JSON.parse(row.substring(0, end + 1));
+            const keys = data.key, values = data.value;
+            let cvs = "";
+
+            // add keys, which may be array or primitive
+            if (Array.isArray(keys)) {
+                for (const k of keys) {
+                    cvs += typeof k === "string" ? '"' + k + '",' : k + ",";
+                }
+            } else {
+                cvs += typeof keys === "string" ? '"' + keys + '",' : keys + ",";
+            }
+
+            // add values, assume it is a flat object or primitive
+            if (typeof values === "object") {
+                let sep = "";
+                for (const p of Object.keys(values)) {
+                    const v = values[p];
+                    cvs += typeof v === "string" ? sep + '"' + v + '"' : sep + v;
+                    sep = ",";
+                }
+            } else {
+                cvs += typeof values === "string" ? '"' + values + '"' : values;
+            }
+            return cvs;
+        }
+
+        // This is called right before the stream is closed.
+        // It is our chance to write out any last data.
+        _flush(callback) {
+            // If we still have a last record, pass it to the callback
+            if (this.incompleteLine.startsWith('{"key":')) {
+                callback(null, this.toCSV(this.incompleteLine) + "\n");
+            }
+        }
+    }
+
+    // write result of a view query to stdout or a file
+    function exportView(ddoc, view, params, outFile) {
+        let out = process.stdout;
+        if (outFile) {
+            out = fs.createWriteStream(outFile);
+        }
+        db.viewAsStream(ddoc, view, params)
+            .on("error", e => console.error("error", e))
+            .setEncoding("utf8")
+            .pipe(new ViewFormatStream())
+            .pipe(out);
+    }
+
     // search transaction by index to return list of transactions for specified contract and date
     async function queryTransactions(address, txDate) {
         // need to install Java Search Plugin for search to work: https://docs.couchdb.org/en/stable/install/search.html#install-search
@@ -129,5 +219,5 @@ export default function cdb(host, port, dbName, user, password) {
         return txSet;
     }
 
-    return { insert, get, fetch, transactionCount, getTransactions, getRawContracts };
+    return { insert, get, fetch, transactionCount, getTransactions, getRawContracts, exportView };
 }

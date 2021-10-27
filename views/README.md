@@ -61,7 +61,48 @@ The design doc [erc20.json](./erc20.json) defines 3 views for any standard [ERC2
 
 The design doc [uniswap-v2.json](./uniswap-v2.json) defines a view that is specific for the Uniswap transaction method of `swapExactTokensForTokens`:
 
-* `swap-token-out` shows the amount of tokens of a specified type swapped out of its pool during a specified time period, i.e., it is summed by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.
+* `swap-token-out` shows the amount of tokens of a specified type swapped out of its pool during a specified time period, i.e., it is summed by a hierarchical key dimension of `[ from_token, to_token, year, month, date, hour, minute ]`.
+
+The view `swap-token-out` reports the amount of the input token, the requested minimal amount of the output token, and the total number of swaps between these 2 tokens.  This view is a very typical report that analysts can implement, which uses 2 functiions as follows.
+
+A map function is used to transform a decoded transaction data into attributes to be aggregated and reported:
+
+```js
+function (doc) {
+  if (doc.docType === 'transaction' && doc.block_timestamp && doc.input.method === 'swapExactTokensForTokens') {
+    const d = new Date(doc.block_timestamp);
+    const param = doc.input.params;
+    let p = param.path;
+    let key = [p[0], p[p.length-1], d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];
+    emit(key, {account: doc.from_address, amountIn: param.amountIn, amountOut: param.amountOutMin, count: 1});
+  }
+}
+```
+
+A reduce function is used to aggregate the results from the map function:
+
+```js
+function (keys, values, rereduce) {
+    if (rereduce) {
+        return values.reduce((a, b) => {
+            return {
+                amountIn: parseFloat(a.amountIn) + parseFloat(b.amountIn),
+                amountOut: parseFloat(a.amountOut) + parseFloat(b.amountOut),
+                count: a.count + b.count
+            };
+        });
+    } else {
+        // BigInt is not supported by CouchDB 3.2.0, so use float
+        let i = 0, o = 0, c = 0;
+        values.forEach(v => {
+            i += parseFloat(v.amountIn);
+            o += parseFloat(v.amountOut);
+            c += v.count;
+        });
+        return { amountIn: i, amountOut: o, count: c };
+    }
+}
+```
 
 Similar views can be easily defined for any complex Ethereum contracts, as long as analysts understand the business meaning of the data attributes in the specified Ethereum contract.
 
