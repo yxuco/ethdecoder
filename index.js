@@ -89,7 +89,7 @@ async function main(...args) {
         console.log("Usage: node index.js command [args]");
         console.log(" where command is decode, update, or export")
         console.log("\nnode index.js decode address [start-date [end-date]]");
-        console.log("  e.g., node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2010-10-01' '2010-10-01'");
+        console.log("  e.g., node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2021-10-01' '2021-10-01'");
         console.log("\nor update Contract cache:");
         console.log(" e.g., node index.js update");
         console.log("\nnode index.js export ddoc view params [output [opt]]");

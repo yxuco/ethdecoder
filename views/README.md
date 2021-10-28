@@ -54,7 +54,7 @@ The design doc [event.json](./event.json) defines 2 view:
 The design doc [erc20.json](./erc20.json) defines 3 views for any standard [ERC20 token](https://ethereum.org/en/developers/docs/standards/tokens/erc-20/):
 
 * `token-transfer-count` shows the number of transfers of a specified ERC20 token during a time period, i.e., it is counted by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.  The aggregation granularity can be specified by the option of `group_level`.
-* `token-transfer-amount` shows the amount of tokens of a specified type transferred during a time period, i.e., it is summed by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.  The aggregation granularity can be specified by the option of `group_level`.  Note that the unit of the amount depends on the `decimals` attribute of a token definition, which is usually `18` that means a unit of 10<sup>18</sup>.
+* `token-transfer-amount` shows the amount of tokens of a specified type transferred during a time period, i.e., it is summed by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.  The aggregation granularity can be specified by the option of `group_level`.  Note that the unit of the amount depends on the `decimals` attribute of a token definition, which is usually `18` that means a unit of 10<sup>-18</sup>.
 * `transfer-by-account` shows the total amount of tokens of a specified type transferred between 2 accounts, i.e., it is summed by a hierarchical key dimension of `[ token, from, to ]`.
 
 ## Uniswap Sample View
