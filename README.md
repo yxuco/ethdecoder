@@ -31,10 +31,10 @@ Follow the [instruction](https://docs.couchdb.org/en/latest/install/index.html) 
 Create a user and a database used to store decoded Ethereum transactions and events by using the following script, e.g.,
 
 ```bash
-curl -X PUT -u admin:admin http://127.0.0.1:5984/ethdb
-curl -X PUT -u admin:admin http://localhost:5984/_users/org.couchdb.user:ethadmin -H "Accept: application/json" -H "Content-Type: application/json" -d '{"name": "ethadmin", "password": "ethadmin", "roles": ["ethdb_admin"], "type": "user"}'
-curl -X PUT -u admin:admin http://localhost:5984/_users/org.couchdb.user:ethuser -H "Accept: application/json" -H "Content-Type: application/json" -d '{"name": "ethuser", "password": "ethuser", "roles": ["ethdb_member"], "type": "user"}'
-curl -X PUT -u admin:admin http://localhost:5984/ethdb/_security -H "Content-Type: application/json" -d '{"admins": { "names": [], "roles": ["_admin", "ethdb_admin"] }, "members": { "names": [], "roles": ["_admin", "ethdb_admin", "ethdb_member"] } }'
+curl -X PUT -u admin:password http://127.0.0.1:5984/ethdb
+curl -X PUT -u admin:password http://localhost:5984/_users/org.couchdb.user:ethadmin -H "Accept: application/json" -H "Content-Type: application/json" -d '{"name": "ethadmin", "password": "ethadmin", "roles": ["ethdb_admin"], "type": "user"}'
+curl -X PUT -u admin:password http://localhost:5984/_users/org.couchdb.user:ethuser -H "Accept: application/json" -H "Content-Type: application/json" -d '{"name": "ethuser", "password": "ethuser", "roles": ["ethdb_member"], "type": "user"}'
+curl -X PUT -u admin:password http://localhost:5984/ethdb/_security -H "Content-Type: application/json" -d '{"admins": { "names": [], "roles": ["_admin", "ethdb_admin"] }, "members": { "names": [], "roles": ["_admin", "ethdb_admin", "ethdb_member"] } }'
 ```
 
 This example creates a database `ethdb` and a user `ethuser` for storing the application output.  The database connection info must be configured in [config.json](./config.json).
@@ -46,6 +46,8 @@ Besides system connection data as described in the previous section, the [config
 * `standardAbis` is a list of standard token ABI files, e.g., [erc20.json](./abis/standard/erc20.json) or [erc721.json](./abis/standard/erc721.json), etc, which are used to decode transaction inputs and event data if the required contract ABI cannot be fetched from Etherscan.
 * `tokenInfo` is a file that lists metadata of token contracts that are not available in on-chain blocks.  The metadata specifies the `symbol`, `name`, and `decimals` of token contracts.
 * `contractAbis` is a folder that contains ABI files for contracts that does not provide verified ABI on the Etherscan.  The ABI files in this folder must be named after the corresponding contract address, e.g., [0x6b175474e89094c44da98b954eedeac495271d0f.json](./abis/0x6b175474e89094c44da98b954eedeac495271d0f.json) is the ABI file for the [DAI token](https://etherscan.io/address/0x6b175474e89094c44da98b954eedeac495271d0f#code).
+
+Before start collecting Ethereum data, you must create at least the `contract` and `transaction` views in the CouchDB as described in [views/README.md](./views/README.md).
 
 ## Run
 
@@ -66,7 +68,7 @@ node index.js decode contract-address [ start-date [ end-date ]]
 For example, the following command would decode the data for the `DAI` token contract in the date range from `2021-10-01` and `2021-10-05` (inclusive):
 
 ```bash
-node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2021-10-01' '2021-10-05'
+node index.js decode '0x6b175474e89094c44da98b954eedeac495271d0f' '2021-10-01' '2021-10-03'
 ```
 
 If the `start-date` and/or `end-date` is not specified, the default date would be the date before the system date, i.e., yesterday.

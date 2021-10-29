@@ -4,24 +4,17 @@ This folder shows sample CouchDB views that can be used to support query and agg
 
 ## Data Collection
 
-We collected a few days of the data from the Uniswap v2 router by the following command, e.g.,
+Create CouchDB views by using the `Fauxton` UI, e.g., [http://127.0.0.1:5984/_utils](http://127.0.0.1:5984/_utils), or by using script such as
+
+```bash
+curl -X PUT http://ethadmin:ethadmin@127.0.0.1:5984/ethdb/_design/contract -d @contract.json
+curl -X PUT http://ethadmin:ethadmin@127.0.0.1:5984/ethdb/_design/transaction -d @transaction.json
+```
+
+We then collected a few days of the data from the Uniswap v2 router by the following command:
 
 ```bash
 node index.js '0x7a250d5630b4cf539739df2c5dacb4c659f2488d' '2021-10-01' '2021-10-03'
-```
-
-You may create a CouchDB view by using the `Fauxton` UI, e.g., [http://127.0.0.1:5984/_utils](http://127.0.0.1:5984/_utils), or by using script such as
-
-```bash
-curl -X PUT http://admin:password@127.0.0.1:5984/db/_design/contract
-     -d `{ "views": {
-        "all-contracts": {
-            "map": "function (doc) {\n  if (doc.docType === 'contract') {\n    emit(doc.address, doc.symbol);\n  }\n}"
-        },
-        "token-contracts": {
-            "map": "function (doc) {\n  if (doc.docType === 'contract' && doc.symbol) {\n    emit(doc.symbol, {name: doc.name, decimals: doc.decimals});\n  }\n}"
-        }
-    }}`
 ```
 
 All views will be updated as new transactions and/or events are inserted into the CouchDB.
@@ -31,16 +24,17 @@ All views will be updated as new transactions and/or events are inserted into th
 The design doc [contract.json](./contract.json) defines 3 views:
 
 * `all-contracts` shows a list of contracts that are collected by the system.  Since the Uniswap router is used to swap thousands of crypto tokens, this view will list thousands of the token contracts whose tokens were swapped during the period of the data collection.
-* `token-contracts` shows the subset of contracts that represent known stable-coins, whose names and symbols are pre-configured in [tokens.json](../config/tokens.json).
-* `raw-contracts` shows the subset of contracts that does not contain the metadata and token info from BigQuery.
+* `token-contracts` shows the subset of contracts that represent known stable-coins and other contracts with known symbols assigned.  The stable-coin names and symbols are pre-configured in [tokens.json](../config/tokens.json).
+* `raw-contracts` shows the subset of contracts that does not contain metadata and token info from BigQuery public dataset.
 
 ## Transaction Views
 
-The design doc [transaction.json](./transaction.json) defines 3 views:
+The design doc [transaction.json](./transaction.json) defines 4 views:
 
-* `count-by-method-date` shows the number of transactions of a specified method-ID during a time period, i.e., it is counted by a hierarchical key dimension of `[ methodID, year, month, date, hour, minute ]`.  By specifying an option of `group_level`, you can query the aggregated transaction counts of different levels.  For example, `group_level=1` would return the total transaction count of all time, while `group_level=5` would return the transaction count in an hour.
+* `count-by-method-date` shows the number of transactions of a specified method-ID during a time period, i.e., it is counted by a hierarchical key dimension of `[ contract-address, methodID, year, month, date, hour, minute ]`.  By specifying an option of `group_level`, you can query the aggregated transaction counts of different levels.  For example, `group_level=2` would return the total transaction count of all time, while `group_level=6` would return the transaction count in an hour.
 * `collated-events` correlates each transaction with its associated blockchain events.  The events indicate what had happened during the transaction, e.g., which types of tokens and the amount are swapped during the transaction.
 * `count-by-contract-date` shows the number of transactions of a specified contract address during a time period.
+* `transfer-by-date` shows count and amount of the standard `ERC20 transfer` transactions in a specified time period.
 
 ## Event Views
 
@@ -51,11 +45,10 @@ The design doc [event.json](./event.json) defines 2 view:
 
 ## ERC20 Token Views
 
-The design doc [erc20.json](./erc20.json) defines 3 views for any standard [ERC20 token](https://ethereum.org/en/developers/docs/standards/tokens/erc-20/):
+The design doc [erc20.json](./erc20.json) defines 2 views for any standard [ERC20 token](https://ethereum.org/en/developers/docs/standards/tokens/erc-20/):
 
-* `token-transfer-count` shows the number of transfers of a specified ERC20 token during a time period, i.e., it is counted by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.  The aggregation granularity can be specified by the option of `group_level`.
-* `token-transfer-amount` shows the amount of tokens of a specified type transferred during a time period, i.e., it is summed by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.  The aggregation granularity can be specified by the option of `group_level`.  Note that the unit of the amount depends on the `decimals` attribute of a token definition, which is usually `18` that means a unit of 10<sup>-18</sup>.
-* `transfer-by-account` shows the total amount of tokens of a specified type transferred between 2 accounts, i.e., it is summed by a hierarchical key dimension of `[ token, from, to ]`.
+* `transfer-by-date` shows the number of transfers and the amount of transferred tokens of a specified ERC20 token during a time period, i.e., it is counted by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.  The aggregation granularity can be specified by `group_level`.  Note that the unit of the amount depends on the `decimals` attribute of a token definition, which is usually `18` that means a unit of 10<sup>-18</sup>.
+* `transfer-by-account` shows the total amount of tokens of a specified type transferred between 2 accounts, i.e., it is summed by a key of `[ token, from, to ]`.
 
 ## Uniswap Sample View
 
@@ -65,7 +58,7 @@ The design doc [uniswap-v2.json](./uniswap-v2.json) defines a view that is speci
 
 The view `swap-token-out` reports the amount of the input token, the requested minimal amount of the output token, and the total number of swaps between these 2 tokens.  This view is a very typical report that analysts can implement, which uses 2 functiions as follows.
 
-A map function is used to transform a decoded transaction data into attributes to be aggregated and reported:
+A map function is used to transform decoded transaction input into attributes to be aggregated and reported:
 
 ```js
 function (doc) {
@@ -104,7 +97,7 @@ function (keys, values, rereduce) {
 }
 ```
 
-Similar views can be easily defined for any complex Ethereum contracts, as long as analysts understand the business meaning of the data attributes in the specified Ethereum contract.
+Similar views can be easily defined for any complex Ethereum contracts, as long as analysts understand the business meaning of the data attributes in a specified Ethereum contract.
 
 ## Query Indexes
 
