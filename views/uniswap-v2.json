@@ -1,10 +1,10 @@
 {
-  "_id": "_design/uniswap-v2",
-  "views": {
-    "swap-token-out": {
-      "reduce": "function (keys, values, rereduce) {\n    if (rereduce) {\n        return values.reduce((a, b) => {\n            return {\n                amountIn: parseFloat(a.amountIn) + parseFloat(b.amountIn),\n                amountOut: parseFloat(a.amountOut) + parseFloat(b.amountOut),\n                count: a.count + b.count\n            };\n        });\n    } else {\n        // BigInt is not supported by CouchDB 3.2.0, so use float\n        let i = 0, o = 0, c = 0;\n        values.forEach(v => {\n            i += parseFloat(v.amountIn);\n            o += parseFloat(v.amountOut);\n            c += v.count;\n        });\n        return { amountIn: i, amountOut: o, count: c };\n    }\n}",
-      "map": "function (doc) {\n  if (doc.docType === 'transaction' && doc.block_timestamp && doc.to_address === '0x7a250d5630b4cf539739df2c5dacb4c659f2488d' && doc.input.method === 'swapExactTokensForTokens') {\n    const d = new Date(doc.block_timestamp);\n    const param = doc.input.params;\n    let p = param.path;\n    let key = [p[0], p[p.length-1], d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(key, {account: doc.from_address, amountIn: param.amountIn, amountOut: param.amountOutMin, count: 1});\n  }\n}"
-    }
-  },
-  "language": "javascript"
+    "_id": "_design/uniswap-v2",
+    "views": {
+        "swap-token-out": {
+            "reduce": "function (keys, values, rereduce) {\n    if (rereduce) {\n        return values.reduce((a, b) => {\n            return {\n                amountIn: parseFloat(a.amountIn) + parseFloat(b.amountIn),\n                amountOut: parseFloat(a.amountOut) + parseFloat(b.amountOut),\n                count: a.count + b.count\n            };\n        });\n    } else {\n        // BigInt is not supported by CouchDB 3.2.0, so use float\n        let i = 0, o = 0, c = 0;\n        values.forEach(v => {\n            i += parseFloat(v.amountIn);\n            o += parseFloat(v.amountOut);\n            c += v.count;\n        });\n        return { amountIn: i, amountOut: o, count: c };\n    }\n}",
+            "map": "function (doc) {\n  if (doc.docType === 'transaction' && doc.block_timestamp && doc.to_address === '0x7a250d5630b4cf539739df2c5dacb4c659f2488d' && doc.input.method === 'swapExactTokensForTokens') {\n    const d = new Date(doc.block_timestamp);\n    const param = doc.input.params;\n    let p = param.path;\n    let key = [p[0], p[p.length-1], d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(key, {account: doc.from_address, amountIn: param.amountIn, amountOut: param.amountOutMin, count: 1});\n  }\n}"
+        }
+    },
+    "language": "javascript"
 }

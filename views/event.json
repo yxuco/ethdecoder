@@ -1,14 +1,14 @@
 {
-  "_id": "_design/event",
-  "views": {
-    "count-by-topic-date": {
-      "map": "function (doc) {\n  if (doc.docType === 'event' && doc.topics && !Array.isArray(doc.topics) && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.topics, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, 1);\n  }\n}",
-      "reduce": "_count"
+    "_id": "_design/event",
+    "views": {
+        "count-by-topic-date": {
+            "map": "function (doc) {\n  if (doc.docType === 'event' && doc.topics && !Array.isArray(doc.topics) && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.topics, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, 1);\n  }\n}",
+            "reduce": "_count"
+        },
+        "count-by-contract-date": {
+            "reduce": "_count",
+            "map": "function (doc) {\n  // include only decoded events, i.e. doc.topics is replaced by event name\n  if (doc.docType === 'event' && doc.address && doc.topics && !Array.isArray(doc.topics) && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.address, doc.topics, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, 1);\n  }\n}"
+        }
     },
-    "count-by-contract-date": {
-      "reduce": "_count",
-      "map": "function (doc) {\n    if (doc.docType === 'event' && doc.address && doc.block_timestamp) {\n    let d = new Date(doc.block_timestamp);\n    let k = [doc.address, d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n    emit(k, 1);\n  }\n}"
-    }
-  },
-  "language": "javascript"
+    "language": "javascript"
 }

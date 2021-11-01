@@ -1,26 +1,26 @@
 {
-  "_id": "_design/find-transaction",
-  "language": "query",
-  "views": {
-    "by-contract": {
-      "map": {
-        "fields": {
-          "to_address": "asc",
-          "block_timestamp": "asc"
-        },
-        "partial_filter_selector": {
-          "docType": "transaction"
+    "_id": "_design/find-transaction",
+    "language": "query",
+    "views": {
+        "by-contract": {
+            "map": {
+                "fields": {
+                    "to_address": "asc",
+                    "block_timestamp": "asc"
+                },
+                "partial_filter_selector": {
+                    "docType": "transaction"
+                }
+            },
+            "reduce": "_count",
+            "options": {
+                "def": {
+                    "fields": [
+                        "to_address",
+                        "block_timestamp"
+                    ]
+                }
+            }
         }
-      },
-      "reduce": "_count",
-      "options": {
-        "def": {
-          "fields": [
-            "to_address",
-            "block_timestamp"
-          ]
-        }
-      }
     }
-  }
 }

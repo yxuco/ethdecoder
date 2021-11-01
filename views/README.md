@@ -29,7 +29,7 @@ The design doc [contract.json](./contract.json) defines 3 views:
 
 ## Transaction Views
 
-The design doc [transaction.json](./transaction.json) defines 4 views:
+The design doc [transaction.json](./transaction.json) defines 3 views:
 
 * `count-by-method-date` shows the number of transactions of a specified method-ID during a time period, i.e., it is counted by a hierarchical key dimension of `[ contract-address, methodID, year, month, date, hour, minute ]`.  By specifying an option of `group_level`, you can query the aggregated transaction counts of different levels.  For example, `group_level=2` would return the total transaction count of all time, while `group_level=6` would return the transaction count in an hour.
 * `collated-events` correlates each transaction with its associated blockchain events.  The events indicate what had happened during the transaction, e.g., which types of tokens and the amount are swapped during the transaction.
@@ -41,14 +41,27 @@ The design doc [transaction.json](./transaction.json) defines 4 views:
 The design doc [event.json](./event.json) defines 2 view:
 
 * `count-by-topic-date` shows the number of events of a specified topic emitted during a time period, i.e., it is counted by a hierarchical key dimension of `[ topic, year, month, date, hour, minute ]`.  Similar to the transaction view above, the aggregation granularity of the counts can be specified by the option of `group_level`.
-* `count-by-contract-date` shows the number of events of a specified contract address emitted during a time period.
+* `count-by-contract-date` shows the number of events of a specified contract address emitted during a time period, i.e., it is counted by key dimension of `[ address, topic, year, month, date, hour, minute ]`.
 
 ## ERC20 Token Views
 
-The design doc [erc20.json](./erc20.json) defines 2 views for any standard [ERC20 token](https://ethereum.org/en/developers/docs/standards/tokens/erc-20/):
+We defined 2 types of views for [ERC20 token](https://ethereum.org/en/developers/docs/standards/tokens/erc-20/) transfers, one is by ERC20 token transactions, the other is by ERC20 events.  These 2 view types are similar except that ERC20 events cover more data because an ERC20 event may be emitted by any contract transactions that result in ERC20 token trnasfers, while the views by token transaction include only the data directly from ERC20 token contracts.
+
+### ERC20 Transaction Views
+
+The design doc [erc20-transaction.json](./erc20-transaction.json) defines 3 views for ERC20 tokens:
 
 * `transfer-by-date` shows the number of transfers and the amount of transferred tokens of a specified ERC20 token during a time period, i.e., it is counted by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.  The aggregation granularity can be specified by `group_level`.  Note that the unit of the amount depends on the `decimals` attribute of a token definition, which is usually `18` that means a unit of 10<sup>-18</sup>.
-* `transfer-by-account` shows the total amount of tokens of a specified type transferred between 2 accounts, i.e., it is summed by a key of `[ token, from, to ]`.
+* `transfer-from-by-date` shows the total amount of tokens transferred from a specified account, i.e., it is aggregated by a key of `[ token, from-account, year, month, date, hour, minute ]`.
+* `transfer-to-by-date` shows the total amount of tokens transferred to a specified account, i.e., it is aggregated by a key of `[ token, to-account, year, month, date, hour, minute ]`.
+
+### ERC20 Event Views
+
+The design doc [erc20-event.json](./erc20-event.json) defines 3 views for ERC20 tokens.  These views are similar to those defined in [erc20-transaction.json](./erc20-transaction.json), but they are based on events, instead of direct token transactions.
+
+* `transfer-by-date` shows the number of transfers and the amount of transferred tokens of a specified ERC20 token during a time period, i.e., it is counted by a hierarchical key dimension of `[ token, year, month, date, hour, minute ]`.  The aggregation granularity can be specified by `group_level`.  Note that the unit of the amount depends on the `decimals` attribute of a token definition, which is usually `18` that means a unit of 10<sup>-18</sup>.
+* `transfer-from-by-date` shows the total amount of tokens transferred from a specified account, i.e., it is aggregated by a key of `[ token, from-account, year, month, date, hour, minute ]`.
+* `transfer-to-by-date` shows the total amount of tokens transferred to a specified account, i.e., it is aggregated by a key of `[ token, to-account, year, month, date, hour, minute ]`.
 
 ## Uniswap Sample View
 

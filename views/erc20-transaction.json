@@ -1,0 +1,18 @@
+{
+    "_id": "_design/erc20-transaction",
+    "views": {
+        "transfer-by-date": {
+            "reduce": "function (keys, values, rereduce) {\n    if (rereduce) {\n        return values.reduce((a, b) => {\n            return {\n                amount: parseFloat(a.amount) + parseFloat(b.amount),\n                count: a.count + b.count\n            };\n        });\n    } else {\n        // BigInt is not supported by CouchDB 3.2.0, so use float\n        let i = 0;\n        values.forEach(v => {\n            i += parseFloat(v.amount);\n        });\n        return { amount: i, count: values.length };\n    }\n}",
+            "map": "function (doc) {\n    if (doc.docType === 'transaction' && doc.to_address && doc.input.method && doc.input.method === 'transfer' && doc.block_timestamp) {\n        let d = new Date(doc.block_timestamp);\n        let k = [doc.to_address, d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n        emit(k, { from: doc.from_address, to: doc.input.params._to, amount: doc.input.params._value });\n    }\n}"
+        },
+        "transfer-from-by-date": {
+            "reduce": "function (keys, values, rereduce) {\n    if (rereduce) {\n        return values.reduce((a, b) => {\n            return {\n                amount: parseFloat(a.amount) + parseFloat(b.amount),\n                count: a.count + b.count\n            };\n        });\n    } else {\n        // BigInt is not supported by CouchDB 3.2.0, so use float\n        let i = 0;\n        values.forEach(v => {\n            i += parseFloat(v.amount);\n        });\n        return { amount: i, count: values.length };\n    }\n}",
+            "map": "function (doc) {\n    if (doc.docType === 'transaction' && doc.to_address && doc.input.method && doc.input.method === 'transfer' && doc.block_timestamp) {\n        let d = new Date(doc.block_timestamp);\n        let k = [doc.to_address, doc.from_address, d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n        emit(k, { to: doc.input.params._to, amount: doc.input.params._value });\n    }\n}"
+        },
+        "transfer-to-by-date": {
+            "reduce": "function (keys, values, rereduce) {\n    if (rereduce) {\n        return values.reduce((a, b) => {\n            return {\n                amount: parseFloat(a.amount) + parseFloat(b.amount),\n                count: a.count + b.count\n            };\n        });\n    } else {\n        // BigInt is not supported by CouchDB 3.2.0, so use float\n        let i = 0;\n        values.forEach(v => {\n            i += parseFloat(v.amount);\n        });\n        return { amount: i, count: values.length };\n    }\n}",
+            "map": "function (doc) {\n    if (doc.docType === 'transaction' && doc.to_address && doc.input.method && doc.input.method === 'transfer' && doc.block_timestamp) {\n        let d = new Date(doc.block_timestamp);\n        let k = [doc.to_address, doc.input.params._to, d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];\n        emit(k, { from: doc.from_address, amount: doc.input.params._value });\n    }\n}"
+        }
+    },
+    "language": "javascript"
+}
