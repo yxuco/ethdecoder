@@ -65,47 +65,46 @@ The design doc [erc20-event.json](./erc20-event.json) defines 3 views for ERC20 
 
 ## Uniswap Sample View
 
-The design doc [uniswap-v2.json](./uniswap-v2.json) defines a view that is specific for the Uniswap transaction method of `swapExactTokensForTokens`:
+The design doc [uniswap-v2.json](./uniswap-v2.json) defines 2 views that are specific for the Uniswap token swap transactions:
 
-* `swap-token-out` shows the amount of tokens of a specified type swapped out of its pool during a specified time period, i.e., it is summed by a hierarchical key dimension of `[ from_token, to_token, year, month, date, hour, minute ]`.
+* `swap-token-from` shows the amount of tokens of a specified type swapped out of its pool during a specified time period, i.e., it is aggregated by a hierarchical key dimension of `[ from_token, year, month, date, hour, minute ]`.
+* `swap-token-to` shows the amount of tokens of a specified type swapped into its pool during a specified time period, i.e., it is aggregated by a hierarchical key dimension of `[ to_token, year, month, date, hour, minute ]`.
 
-The view `swap-token-out` reports the amount of the input token, the requested minimal amount of the output token, and the total number of swaps between these 2 tokens.  This view is a very typical report that analysts can implement, which uses 2 functiions as follows.
+The view `swap-token-from` reports the amount of the input tokens and the total number of swap transactions.  This view is a very typical report that analysts can implement, which uses 2 functiions as follows.
 
 A map function is used to transform decoded transaction input into attributes to be aggregated and reported:
 
 ```js
 function (doc) {
-  if (doc.docType === 'transaction' && doc.block_timestamp && doc.input.method === 'swapExactTokensForTokens') {
-    const d = new Date(doc.block_timestamp);
-    const param = doc.input.params;
-    let p = param.path;
-    let key = [p[0], p[p.length-1], d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];
-    emit(key, {account: doc.from_address, amountIn: param.amountIn, amountOut: param.amountOutMin, count: 1});
-  }
+    if (doc.docType === 'transaction' && doc.block_timestamp && doc.to_address === '0x7a250d5630b4cf539739df2c5dacb4c659f2488d' &&
+        ['swapExactTokensForTokens', 'swapExactTokensForETH', 'swapExactTokensForETHSupportingFeeOnTransferTokens', 'swapExactETHForTokens', 'swapETHForExactTokens'].includes(doc.input.method)) {
+        const d = new Date(doc.block_timestamp);
+        const param = doc.input.params;
+        let p = param.path;
+        let key = [p[0], d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes()];
+        emit(key, { to: p[p.length - 1], amount: param.amountIn ? param.amountIn : doc.value });
+    }
 }
 ```
 
-A reduce function is used to aggregate the results from the map function:
+A reduce function is used to aggregate the results of the map function:
 
 ```js
 function (keys, values, rereduce) {
     if (rereduce) {
         return values.reduce((a, b) => {
             return {
-                amountIn: parseFloat(a.amountIn) + parseFloat(b.amountIn),
-                amountOut: parseFloat(a.amountOut) + parseFloat(b.amountOut),
+                amount: parseFloat(a.amount) + parseFloat(b.amount),
                 count: a.count + b.count
             };
         });
     } else {
         // BigInt is not supported by CouchDB 3.2.0, so use float
-        let i = 0, o = 0, c = 0;
+        let s = 0;
         values.forEach(v => {
-            i += parseFloat(v.amountIn);
-            o += parseFloat(v.amountOut);
-            c += v.count;
+            s += parseFloat(v.amount);
         });
-        return { amountIn: i, amountOut: o, count: c };
+        return { amount: s, count: values.length };
     }
 }
 ```
