@@ -65,6 +65,8 @@ Run the following command to decode Ethereum transactions and events from a spec
 node index.js decode contract-address [ start-date [ end-date ]]
 ```
 
+The `contract-address` may be a comma-delimited list of contract addresses.
+
 For example, the following command would decode the data for the `DAI` token contract in the date range from `2021-10-01` and `2021-10-05` (inclusive):
 
 ```bash
@@ -106,6 +108,14 @@ node index.js export 'uniswap-v2' 'swap-token-out' '{"group_level": 5, "limit": 
 ```
 
 In this report, the input token count `amountIn` will be normalized by using the token address in the first key column, and the output token count `amountOut` will be normalized by using the token address in the second key column.
+
+The `options` argument may also specify one or more value filters to reduce the size of the resulting output file.  The filters specify functions that evaluate attributes of the view's value object and return true for exported rows.  For example, following option will export only values with `count > 2`:
+
+```json
+{ "$filter": "x => x.count > 2" }
+```
+
+See [example.sh](./reports/example.sh) for a sample command that uses options for both amount normalization and value filters.
 
 Note that you may preview the result of a query by using the CouchDB Fauxton UI before you execute the `export` command.
 

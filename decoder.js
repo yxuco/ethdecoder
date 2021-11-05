@@ -90,6 +90,10 @@ export default function decoder(contracts, ...abiFiles) {
         await pipeline(txStream, async function (qs) {
             let count = 0;
             for await (let tx of qs) {
+                if (tx.receipt_status == 0) {
+                    console.log("ignore error transaction:", tx.hash);
+                    continue;
+                }
                 txHashSet.add(tx.hash);    // return all transaction hash for collecting corresponding event logs
                 if (tx && tx.value) {
                     tx.value = tx.value.toString();

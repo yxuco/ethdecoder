@@ -82,6 +82,15 @@ export default function cdb(host, port, dbName, user, password) {
         constructor(opt, contracts) {
             super({ decodeStrings: false });  // Don't convert strings back to buffers
             this.incompleteLine = "";         // Any remnant of the last chunk of data
+            if (opt.$filter) {
+                // extract and cache filter functions
+                if (Array.isArray(opt.$filter)) {
+                    this.filter = opt.$filter.map(x => eval(x));
+                } else {
+                    this.filter = [eval(opt.$filter)];
+                }
+                delete opt.$filter;  // remove $filter property from opt
+            }
             this.opt = opt;
             this.contracts = contracts;
         }
@@ -124,6 +133,18 @@ export default function cdb(host, port, dbName, user, password) {
             const keys = data.key, values = data.value;
             let cvs = "";
 
+            if (this.filter) {
+                // apply value filters
+                for (const f of this.filter) {
+                    if (typeof values === "object") {
+                        if (!f(values)) {
+                            return "";
+                        }
+                    } else if (!f(data)) {
+                        return "";
+                    }
+                }
+            }
             let tokenSymbols = [];
             let tokenDecimals = {};
             if (this.opt) {

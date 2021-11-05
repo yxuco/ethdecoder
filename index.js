@@ -40,7 +40,11 @@ async function main(...args) {
         // transaction and event decoder initialized by standard abis
         const dcd = decoder(contracts, ...config.standardAbis);
 
-        const addr = args[1];
+        let addr = args[1];
+        if (addr.includes(",")) {
+            // convert csv to array
+            addr = addr.split(",").map(x => x.trim());
+        }
         let startDt = new Date(), endDt = new Date();
         if (args.length < 3) {
             startDt.setDate(startDt.getDate() - 1);
@@ -97,25 +101,28 @@ async function main(...args) {
 
 main(...process.argv.slice(2));
 
-// decode transaction and event data of specified contract address and date.
+// decode transaction and event data of specified contract addresses and date.
 // fetch data from BigQuery, write decoded data in couchdb
-async function decodeBQData(address, txDate, bq, db, dcd) {
-    const txCount = await db.transactionCount(address, txDate);
+async function decodeBQData(addresses, txDate, bq, db, dcd) {
     let txns = new Set();
-    if (txCount > 1000) {
-        // already collected transaction in db, so query the transactions
-        console.log("fetch transactions from db", address, txDate);
-        txns = await db.getTransactions(address, txDate);
-    } else {
+    if (!Array.isArray(addresses)) {
+        const txCount = await db.transactionCount(addresses, txDate);
+        if (txCount > 1000) {
+            // already collected transaction in db, so query the transactions
+            console.log("fetch transactions from db", addresses, txDate);
+            txns = await db.getTransactions(addresses, txDate);
+        }
+    }
+    if (txns.size == 0) {
         // fetch and transform transactions for specified contract in a specified date
-        const txStream = bq.transactionStream(txDate, address);
-        console.log("decode transaction", address, txDate);
+        const txStream = bq.transactionStream(txDate, addresses);
+        console.log("decode transaction", addresses, txDate);
         txns = await dcd.decodeTransactionStream(txStream, db);
     }
 
     // fetch corresponding events
     const evtStream = bq.eventStream(txDate);
-    console.log("decode events", txns.size, address, txDate);
+    console.log("decode events", txns.size, addresses, txDate);
     await dcd.decodeEventStream(evtStream, db, txns);
 }
 

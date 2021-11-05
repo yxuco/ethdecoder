@@ -21,7 +21,7 @@ export default function bigquery(credential) {
         console.log(`BigQuery Job ${job.id} started.`);
         return await job.getQueryResults();
     }
-    
+
     function eventStream(blockDate, limit = -1, location = "US") {
         let stmt = `SELECT * FROM \`bigquery-public-data.crypto_ethereum.logs\` WHERE DATE(block_timestamp) = "${blockDate}"`;
         if (limit > 0) {
@@ -41,8 +41,14 @@ export default function bigquery(credential) {
         return bq.createQueryStream(options);
     }
 
-    function transactionStream(blockDate, contract, limit = -1, location = "US") {
-        let stmt = `SELECT * FROM \`bigquery-public-data.crypto_ethereum.transactions\` WHERE DATE(block_timestamp) = "${blockDate}" and to_address = "${contract}"`;
+    function transactionStream(blockDate, addresses, limit = -1, location = "US") {
+        let stmt = `SELECT * FROM \`bigquery-public-data.crypto_ethereum.transactions\` WHERE DATE(block_timestamp) = "${blockDate}"`;
+        if (Array.isArray(addresses)) {
+            const addrList = addresses.join(`","`);
+            stmt += ` AND to_address in ("${addrList}")`;
+        } else {
+            stmt += ` AND to_address = "${addresses}"`;
+        }
         if (limit > 0) {
             stmt += ` LIMIT ${limit}`;
         }
