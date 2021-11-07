@@ -65,10 +65,12 @@ The design doc [erc20-event.json](./erc20-event.json) defines 3 views for ERC20 
 
 ## Uniswap Sample View
 
-The design doc [uniswap-v2.json](./uniswap-v2.json) defines 2 views that are specific for the Uniswap token swap transactions:
+The design doc [uniswap-v2.json](./uniswap-v2.json) defines 4 views that are specific for the Uniswap token swap transactions:
 
 * `swap-token-from` shows the amount of tokens of a specified type swapped out of its pool during a specified time period, i.e., it is aggregated by a hierarchical key dimension of `[ from_token, year, month, date, hour, minute ]`.
 * `swap-token-to` shows the amount of tokens of a specified type swapped into its pool during a specified time period, i.e., it is aggregated by a hierarchical key dimension of `[ to_token, year, month, date, hour, minute ]`.
+* `eth-to-token` shows the amount of ETH swapped to amount of tokens of a specified type during a specified time period, i.e., it is aggregated by a hierarchical key dimension of `[ eth, to_token, year, month, date, hour, minute ]`.
+* `token-to-eth` shows the amount of tokens of a specified type swapped to amount of ETH during a specified time period, i.e., it is aggregated by a hierarchical key dimension of `[ eth, from_token, year, month, date, hour, minute ]`.
 
 The view `swap-token-from` reports the amount of the input tokens and the total number of swap transactions.  This view is a very typical report that analysts can implement, which uses 2 functiions as follows.
 

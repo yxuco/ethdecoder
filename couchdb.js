@@ -82,14 +82,17 @@ export default function cdb(host, port, dbName, user, password) {
         constructor(opt, contracts) {
             super({ decodeStrings: false });  // Don't convert strings back to buffers
             this.incompleteLine = "";         // Any remnant of the last chunk of data
-            if (opt.$filter) {
-                // extract and cache filter functions
-                if (Array.isArray(opt.$filter)) {
-                    this.filter = opt.$filter.map(x => eval(x));
-                } else {
-                    this.filter = [eval(opt.$filter)];
+            for (const filter of ["$filter", "$keyFilter"]) {
+                const f = filter.substring(1);
+                if (opt[filter]) {
+                    // extract and cache filter functions
+                    if (Array.isArray(opt[filter])) {
+                        this[f] = opt[filter].map(x => eval(x));
+                    } else {
+                        this[f] = [eval(opt[filter])];
+                    }
+                    delete opt[filter];  // remove filter property from opt
                 }
-                delete opt.$filter;  // remove $filter property from opt
             }
             this.opt = opt;
             this.contracts = contracts;
@@ -133,18 +136,15 @@ export default function cdb(host, port, dbName, user, password) {
             const keys = data.key, values = data.value;
             let cvs = "";
 
-            if (this.filter) {
-                // apply value filters
-                for (const f of this.filter) {
-                    if (typeof values === "object") {
-                        if (!f(values)) {
-                            return "";
-                        }
-                    } else if (!f(data)) {
+            if (this.keyFilter) {
+                // apply key filters
+                for (const f of this.keyFilter) {
+                    if (!f(keys)) {
                         return "";
                     }
                 }
             }
+
             let tokenSymbols = [];
             let tokenDecimals = {};
             if (this.opt) {
@@ -185,16 +185,28 @@ export default function cdb(host, port, dbName, user, password) {
             }
 
             // add values, assume it is a flat object or primitive
+            let normalized = {};
             if (typeof values === "object") {
                 let sep = "";
                 for (const p of Object.keys(values)) {
                     const v = tokenDecimals[p] && tokenDecimals[p] > 0 ? parseFloat(values[p]) / (10 ** tokenDecimals[p]) : values[p];
+                    normalized[p] = v;
                     cvs += typeof v === "string" ? sep + '"' + v + '"' : sep + v;
                     sep = ",";
                 }
             } else {
                 const v = tokenDecimals["value"] && tokenDecimals["value"] > 0 ? parseFloat(values) / (10 ** tokenDecimals["value"]) : values;
+                normalized = v;
                 cvs += typeof v === "string" ? '"' + v + '"' : v;
+            }
+
+            if (this.filter) {
+                // apply value filters
+                for (const f of this.filter) {
+                    if (!f(normalized)) {
+                        return "";
+                    }
+                }
             }
             return cvs;
         }

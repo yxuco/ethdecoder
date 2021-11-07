@@ -117,6 +117,14 @@ The `options` argument may also specify one or more value filters to reduce the 
 
 See [example.sh](./reports/example.sh) for a sample command that uses options for both amount normalization and value filters.
 
+You can also specify key-filters to filter exported rows by keys of a view, e.g.,
+
+```json
+{ "$keyFilter": "x => x[0] === '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'" }
+```
+
+The above key filter would export only rows whows first key element is the specified contract address.  If you want to specify multiple filters, you can specify `$filter` and/or `$keyFilter` as an array of strings, and each string defines a filter function for the view.
+
 Note that you may preview the result of a query by using the CouchDB Fauxton UI before you execute the `export` command.
 
 ## Data in CouchDB
